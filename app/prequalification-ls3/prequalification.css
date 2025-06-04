@@ -1,0 +1,26 @@
+/* Animations for highlighting changes */
+@keyframes highlight-green {
+  0% {
+    background-color: rgba(167, 243, 208, 0.5);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes highlight-yellow {
+  0% {
+    background-color: rgba(254, 240, 138, 0.5);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-highlight-green {
+  animation: highlight-green 2s ease-out;
+}
+
+.animate-highlight-yellow {
+  animation: highlight-yellow 2s ease-out;
+}

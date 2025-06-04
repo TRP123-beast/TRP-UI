@@ -1,0 +1,58 @@
+/* Animation for highlighting changes */
+@keyframes highlight-green {
+  0% {
+    background-color: rgba(74, 222, 128, 0.4);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes highlight-yellow {
+  0% {
+    background-color: rgba(250, 204, 21, 0.4);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-highlight-green {
+  animation: highlight-green 2s ease-out;
+}
+
+.animate-highlight-yellow {
+  animation: highlight-yellow 2s ease-out;
+}
+
+/* Calendar styling */
+.rdp {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: #f97316;
+  --rdp-background-color: #f97316;
+  margin: 0;
+}
+
+.rdp-day_selected,
+.rdp-day_selected:focus-visible,
+.rdp-day_selected:hover {
+  background-color: var(--rdp-accent-color);
+  color: white;
+}
+
+.rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background-color: #fef3c7;
+  color: #f97316;
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .rdp {
+    --rdp-cell-size: 36px;
+    font-size: 14px;
+  }
+
+  .rdp-caption {
+    padding: 0;
+  }
+}

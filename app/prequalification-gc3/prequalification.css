@@ -1,0 +1,156 @@
+.qualification-header-scrolled {
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.progress-indicator {
+  height: 8px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #ffa500;
+  transition: width 0.3s ease;
+}
+
+.question-container {
+  margin-bottom: 2rem;
+}
+
+.question-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.question-description {
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+.option-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.option-label {
+  margin-left: 0.5rem;
+}
+
+.navigation-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+}
+
+.back-button {
+  background-color: transparent;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+}
+
+.next-button {
+  background-color: #ffa500;
+  color: black;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+}
+
+.next-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.alert-container {
+  background-color: #fff3e0;
+  border: 1px solid #ffe0b2;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.alert-icon {
+  color: #f57c00;
+  margin-right: 0.5rem;
+}
+
+.alert-message {
+  color: #e65100;
+}
+
+.summary-container {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.summary-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.summary-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.summary-label {
+  color: #6b7280;
+}
+
+.summary-value {
+  font-weight: 500;
+}
+
+.flag-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.flag-indicator {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background-color: #10b981;
+  margin-right: 0.5rem;
+}
+
+.flag-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.completion-icon {
+  width: 4rem;
+  height: 4rem;
+  color: #10b981;
+  margin: 0 auto;
+}
+
+.completion-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.completion-message {
+  color: #6b7280;
+  text-align: center;
+  margin-top: 0.5rem;
+}
