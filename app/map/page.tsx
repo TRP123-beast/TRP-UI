@@ -66,11 +66,11 @@ export default function MapPage() {
           <Button
             variant="outline"
             size="icon"
-            className="h-10 w-10 rounded-full bg-white shadow-md border border-gray-200 hover:bg-red-50 hover:border-red-200"
+            className="h-12 w-12 rounded-full bg-white shadow-lg border-2 border-gray-300 hover:bg-red-50 hover:border-red-300 transition-all duration-200"
             onClick={handleExit}
             aria-label="Exit map view"
           >
-            <X className="h-5 w-5" />
+            <X className="h-6 w-6 text-gray-700" />
           </Button>
         </div>
 

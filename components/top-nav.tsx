@@ -1,189 +1,227 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { Bell, Search, ShoppingCart } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ProfileMenu } from "@/components/profile-menu"
+import { NotificationsMenu } from "@/components/notifications-menu"
+import { CartPreview } from "@/components/cart-preview"
+import { SearchModal } from "@/components/search-modal"
+import { RecentlyViewedModal } from "@/components/recently-viewed-modal"
+import { ProfileEditModal } from "@/components/profile-edit-modal"
 import Image from "next/image"
-import Link from "next/link"
-import { ShoppingCart, Menu } from "lucide-react"
 import { SearchBar } from "@/components/search-bar"
-import { useMobile } from "@/hooks/use-mobile"
-import { FilterModal } from "@/components/filter-modal"
-import { SidebarPopup } from "@/components/sidebar-popup"
 
-interface TopNavProps {
-  cartItems?: any[]
-  properties?: any[]
-  onSearch?: (locations: string[]) => void
-  onFilterClick?: () => void
-}
-
-export function TopNav({ cartItems = [], properties = [], onSearch, onFilterClick }: TopNavProps) {
-  const { isMobile } = useMobile()
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [showProfile, setShowProfile] = useState(false)
-  const [filterModalOpen, setFilterModalOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [searchFocused, setSearchFocused] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const sidebarRef = useRef<HTMLDivElement>(null)
-  const toggleRef = useRef<HTMLDivElement>(null)
+export function TopNav() {
   const router = useRouter()
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const [isCartOpen, setIsCartOpen] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isRecentlyViewedOpen, setIsRecentlyViewedOpen] = useState(false)
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false)
+  const [properties, setProperties] = useState<any[]>([])
 
+  // Load properties from localStorage or default to empty array
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10)
-    }
-
-    window.addEventListener("scroll", handleScroll)
-    return () => {
-      window.removeEventListener("scroll", handleScroll)
+    const storedProperties = localStorage.getItem("properties")
+    if (storedProperties) {
+      setProperties(JSON.parse(storedProperties))
     }
   }, [])
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        sidebarRef.current &&
-        !sidebarRef.current.contains(event.target as Node) &&
-        toggleRef.current &&
-        !toggleRef.current.contains(event.target as Node)
-      ) {
-        setSidebarOpen(false)
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [sidebarRef, toggleRef])
-
-  const handleFilterButtonClick = () => {
-    if (onFilterClick) {
-      onFilterClick()
-    } else {
-      setFilterModalOpen(true)
-    }
+  const toggleProfileMenu = () => {
+    setIsProfileMenuOpen(!isProfileMenuOpen)
+    if (isNotificationsOpen) setIsNotificationsOpen(false)
+    if (isCartOpen) setIsCartOpen(false)
   }
 
-  const handleApplyFilters = (filters: any) => {
-    console.log("Applied filters:", filters)
-    // In a real app, you would update the parent component with these filters
+  const toggleNotifications = () => {
+    setIsNotificationsOpen(!isNotificationsOpen)
+    if (isProfileMenuOpen) setIsProfileMenuOpen(false)
+    if (isCartOpen) setIsCartOpen(false)
   }
 
-  const handleSearchChange = (query: string) => {
-    setSearchQuery(query)
+  const toggleCart = () => {
+    setIsCartOpen(!isCartOpen)
+    if (isProfileMenuOpen) setIsProfileMenuOpen(false)
+    if (isNotificationsOpen) setIsNotificationsOpen(false)
   }
 
-  const handleSearchSubmit = (locations: string[]) => {
-    console.log("TopNav received search locations:", locations)
-    if (onSearch) {
-      onSearch(locations)
-    }
+  const openSearch = () => {
+    setIsSearchOpen(true)
   }
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen)
+  const closeSearch = () => {
+    setIsSearchOpen(false)
+  }
+
+  const openRecentlyViewed = () => {
+    setIsRecentlyViewedOpen(true)
+  }
+
+  const closeRecentlyViewed = () => {
+    setIsRecentlyViewedOpen(false)
+  }
+
+  const handleViewProfile = () => {
+    router.push("/profile")
+    setIsProfileMenuOpen(false)
+  }
+
+  const handleSettings = () => {
+    router.push("/settings")
+    setIsProfileMenuOpen(false)
+  }
+
+  const handleEditProfile = () => {
+    setIsEditProfileOpen(true)
+    setIsProfileMenuOpen(false)
   }
 
   return (
-    <>
-      <div
-        className={`sticky top-0 z-40 w-full ${
-          isScrolled ? "bg-transparent backdrop-blur-sm shadow-md" : "bg-transparent"
-        } transition-all duration-200 ${isScrolled ? "border-b border-gray-200/50" : ""}`}
-      >
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-auto py-3">
+    <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
+      <div className="container mx-auto px-4 py-2">
+        {/* Mobile Layout */}
+        <div className="md:hidden">
+          <div className="flex items-center justify-between mb-2">
             {/* Logo */}
-            <Link href="/">
-              <div className="flex items-center">
-                <Image
-                  src="/images/TRP-Logo.png"
-                  alt="The Rental Project Logo"
-                  width={isMobile ? 100 : 130}
-                  height={isMobile ? 30 : 40}
-                  className="h-auto"
-                  priority
-                />
+            <button onClick={() => router.push("/")} className="flex items-center" aria-label="Go to homepage">
+              <div className="relative w-8 h-8">
+                <Image src="/images/TRP-Logo.png" alt="TRP Logo" fill className="object-contain" />
               </div>
-            </Link>
+            </button>
 
-            {/* Search Bar for Desktop */}
-            {!isMobile && (
-              <div className="flex-1 max-w-md mx-4">
-                <SearchBar
-                  onSearch={handleSearchSubmit}
-                  onFilterClick={handleFilterButtonClick}
-                  properties={properties}
-                />
+            {/* Notifications */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleNotifications}
+                className="relative"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+              </Button>
+              {isNotificationsOpen && <NotificationsMenu onClose={() => setIsNotificationsOpen(false)} />}
+            </div>
+          </div>
+
+          {/* Centered Search Bar */}
+          <div className="flex justify-center w-full">
+            <div className="w-full max-w-[90%]">
+              <SearchBar
+                onSearch={(locations) => {
+                  console.log("Search locations:", locations)
+                  closeSearch()
+                }}
+                properties={properties || []}
+                onFilterClick={openSearch}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Layout */}
+        <div className="hidden md:flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center">
+            <button onClick={() => router.push("/")} className="flex items-center gap-2" aria-label="Go to homepage">
+              <div className="relative w-8 h-8">
+                <Image src="/images/TRP-Logo.png" alt="TRP Logo" fill className="object-contain" />
               </div>
-            )}
+              <span className="font-semibold text-lg"></span>
+            </button>
+          </div>
 
-            {/* Mobile: Search Bar and Filter Button */}
-            {isMobile && (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="flex-1 max-w-xs mx-2">
-                  <SearchBar
-                    onSearch={handleSearchSubmit}
-                    onFilterClick={handleFilterButtonClick}
-                    properties={properties}
-                  />
+          {/* Search Bar */}
+          <div className="flex-1 max-w-md mx-4">
+            <button
+              onClick={openSearch}
+              className="flex items-center w-full px-4 py-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+            >
+              <Search className="h-4 w-4 text-gray-500 mr-2" />
+              <span className="text-gray-500 text-sm">Search properties, neighborhoods...</span>
+            </button>
+          </div>
+
+          {/* Right Side Icons */}
+          <div className="flex items-center gap-2">
+            {/* Notifications */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleNotifications}
+                className="relative"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+              </Button>
+              {isNotificationsOpen && <NotificationsMenu onClose={() => setIsNotificationsOpen(false)} />}
+            </div>
+
+            {/* Cart */}
+            <div className="relative">
+              <Button variant="ghost" size="icon" onClick={toggleCart} className="relative" aria-label="Shopping cart">
+                <ShoppingCart className="h-5 w-5" />
+                <span className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full"></span>
+              </Button>
+              {isCartOpen && <CartPreview onClose={() => setIsCartOpen(false)} />}
+            </div>
+
+            {/* Profile */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleProfileMenu}
+                className="relative"
+                aria-label="User profile"
+              >
+                <div className="bg-teal-500 rounded-full w-7 h-7 flex items-center justify-center text-white">
+                  <span className="text-xs font-medium">MW</span>
                 </div>
-              </div>
-            )}
-
-            {/* Right Side Items (Profile, Cart) - Only show on desktop */}
-            {!isMobile && (
-              <div className="flex items-center gap-4">
-                {/* Cart */}
-                <Link href="/cart">
-                  <div className="relative">
-                    <ShoppingCart className="h-6 w-6 text-gray-800" />
-                    {cartItems.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-[#FFA500] text-black text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                        {cartItems.length}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-
-                {/* Sidebar Toggle with Profile */}
-                <div
-                  ref={toggleRef}
-                  className="flex items-center bg-gray-100 rounded-full pl-3 pr-1 py-1 cursor-pointer"
-                  onClick={toggleSidebar}
-                >
-                  <Menu className="h-5 w-5 text-gray-700 mr-2" />
-                  <div className="relative h-8 w-8 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
-                    <span className="text-white font-medium">M</span>
-                  </div>
-                </div>
-              </div>
-            )}
+              </Button>
+              {isProfileMenuOpen && (
+                <ProfileMenu
+                  onClose={() => setIsProfileMenuOpen(false)}
+                  onViewProfile={handleViewProfile}
+                  onSettings={handleSettings}
+                  onEditProfile={handleEditProfile}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Popup Sidebar - Only show on desktop */}
-      {!isMobile && sidebarOpen && (
-        <div
-          ref={sidebarRef}
-          className="fixed right-4 top-16 z-50 bg-white rounded-lg shadow-lg border border-gray-200 w-64 overflow-hidden transition-all duration-300 ease-in-out"
-        >
-          <div className="py-2">
-            <SidebarPopup onClose={() => setSidebarOpen(false)} />
-          </div>
-        </div>
-      )}
+      {/* Search Modal */}
+      {isSearchOpen && <SearchModal onClose={closeSearch} onRecentlyViewed={openRecentlyViewed} />}
 
-      {/* Filter Modal */}
-      <FilterModal
-        isOpen={filterModalOpen}
-        onClose={() => setFilterModalOpen(false)}
-        onApplyFilters={handleApplyFilters}
-        properties={properties}
-      />
-    </>
+      {/* Recently Viewed Modal */}
+      {isRecentlyViewedOpen && <RecentlyViewedModal onClose={closeRecentlyViewed} />}
+
+      {/* Edit Profile Modal */}
+      {isEditProfileOpen && (
+        <ProfileEditModal
+          onClose={() => setIsEditProfileOpen(false)}
+          initialData={{
+            name: "Maureen Wariara",
+            email: "maureenw@gmail.com",
+            phone: "+1 (555) 123-4567",
+            address: "123 Main St, Anytown, USA",
+            avatar: "/diverse-professional-profiles.png",
+          }}
+          onSave={(data) => {
+            console.log("Saving profile data:", data)
+            setIsEditProfileOpen(false)
+          }}
+        />
+      )}
+    </div>
   )
 }

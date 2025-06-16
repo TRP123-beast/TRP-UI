@@ -1,21 +1,38 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { User, Settings, LogOut } from "lucide-react"
+import {
+  User,
+  Settings,
+  LogOut,
+  ClipboardCheck,
+  FileCheck,
+  Calendar,
+  MessageCircle,
+  Heart,
+  FileText,
+  Edit,
+} from "lucide-react"
 
 interface ProfileMenuProps {
   onClose: () => void
   onViewProfile: () => void
   onSettings: () => void
+  onEditProfile: () => void
 }
 
-export function ProfileMenu({ onClose, onViewProfile, onSettings }: ProfileMenuProps) {
+export function ProfileMenu({ onClose, onViewProfile, onSettings, onEditProfile }: ProfileMenuProps) {
   const router = useRouter()
 
   const handleLogout = () => {
     // In a real app, you would implement logout logic here
     // For now, we'll just navigate to the login page
     router.push("/login")
+    onClose()
+  }
+
+  const navigateTo = (path: string) => {
+    router.push(path)
     onClose()
   }
 
@@ -39,7 +56,71 @@ export function ProfileMenu({ onClose, onViewProfile, onSettings }: ProfileMenuP
           onClick={onViewProfile}
         >
           <User className="h-4 w-4" />
-          <span>View profile</span>
+          <span>View Profile</span>
+        </button>
+
+        <button
+          className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          onClick={onEditProfile}
+        >
+          <Edit className="h-4 w-4" />
+          <span>Edit Profile</span>
+        </button>
+
+        <button
+          className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => navigateTo("/qualification")}
+        >
+          <ClipboardCheck className="h-4 w-4" />
+          <span>Qualification</span>
+        </button>
+
+        <button
+          className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => navigateTo("/qualification-credentials")}
+        >
+          <FileCheck className="h-4 w-4" />
+          <span>Qualification Credentials</span>
+        </button>
+
+        <button
+          className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => navigateTo("/showings")}
+        >
+          <Calendar className="h-4 w-4" />
+          <span>Showings</span>
+        </button>
+
+        <button
+          className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => navigateTo("/offers")}
+        >
+          <User className="h-4 w-4" />
+          <span>Offers</span>
+        </button>
+
+        <button
+          className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => navigateTo("/messaging")}
+        >
+          <MessageCircle className="h-4 w-4" />
+          <span>Message Center</span>
+        </button>
+
+        <button
+          className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => navigateTo("/wishlists")}
+        >
+          <Heart className="h-4 w-4" />
+          <span>Wishlists</span>
+        </button>
+
+        <button
+          className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => navigateTo("/lease-success-package")}
+        >
+          <FileText className="h-4 w-4" />
+          <span>Lease Success Package</span>
         </button>
 
         <button

@@ -3,7 +3,18 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { LogOut, ChevronRight, Calendar, MessageCircle, Heart, Users, Fingerprint, ArrowLeft } from "lucide-react"
+import {
+  LogOut,
+  ChevronRight,
+  Calendar,
+  MessageCircle,
+  Heart,
+  Users,
+  ArrowLeft,
+  FileText,
+  ClipboardCheck,
+  FileCheck,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProfileEditModal } from "@/components/profile-edit-modal"
@@ -11,10 +22,14 @@ import { useMobile } from "@/hooks/use-mobile"
 
 // Mock user data - in a real app, this would come from an API
 const userData = {
-  name: "Michael Johnson",
+  firstName: "Michael",
+  lastName: "Johnson",
   email: "michael@example.com",
   phone: "+1 (555) 123-4567",
   address: "123 Main St, Anytown, USA",
+  city: "Anytown",
+  state: "CA",
+  zip: "12345",
   avatar: "/diverse-professional-profiles.png",
 }
 
@@ -58,7 +73,7 @@ export default function ProfilePage() {
 
               {/* User details */}
               <div className="flex-1 text-center sm:text-left">
-                <h2 className="text-2xl font-bold">{userData.name}</h2>
+                <h2 className="text-2xl font-bold">{`${userData.firstName} ${userData.lastName}`}</h2>
                 <p className="text-gray-500 mt-1">{userData.email}</p>
                 <p className="text-gray-500">{userData.phone}</p>
                 <p className="text-gray-500">{userData.address}</p>
@@ -83,8 +98,19 @@ export default function ProfilePage() {
                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition"
                 >
                   <div className="flex items-center gap-3">
-                    <Fingerprint className="h-5 w-5 text-gray-400" />
+                    <ClipboardCheck className="h-5 w-5 text-gray-400" />
                     <span>Qualification</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-300" />
+                </button>
+
+                <button
+                  onClick={() => router.push("/qualification-credentials")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileCheck className="h-5 w-5 text-gray-400" />
+                    <span>Qualification Credentials</span>
                   </div>
                   <ChevronRight className="h-5 w-5 text-gray-300" />
                 </button>
@@ -134,6 +160,17 @@ export default function ProfilePage() {
                 </button>
 
                 <button
+                  onClick={() => router.push("/lease-success-package")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-gray-400" />
+                    <span>Lease Success Package</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-300" />
+                </button>
+
+                <button
                   onClick={() => router.push("/")}
                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition"
                 >
@@ -152,9 +189,12 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile Edit Modal */}
-      {isEditModalOpen && (
-        <ProfileEditModal onClose={() => setIsEditModalOpen(false)} initialData={userData} onSave={handleSaveProfile} />
-      )}
+      <ProfileEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        userData={userData}
+        onSave={handleSaveProfile}
+      />
     </DashboardLayout>
   )
 }

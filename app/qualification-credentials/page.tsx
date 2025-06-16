@@ -1113,14 +1113,14 @@ export default function QualificationCredentialsPage() {
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto p-6">
+        <div className="max-w-4xl mx-auto p-4 sm:p-6">
           {/* Progress Indicator */}
-          <div className="mb-8">
+          <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               {[1, 2, 3, 4].map((step) => (
                 <div
                   key={step}
-                  className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
+                  className={`flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 rounded-full border-2 ${
                     step <= currentStep ? "bg-orange-500 border-orange-500 text-white" : "border-gray-300 text-gray-400"
                   }`}
                 >
@@ -1139,13 +1139,13 @@ export default function QualificationCredentialsPage() {
           {/* Step 1: Group Selection */}
           {currentStep === 1 && (
             <Card className="border-2 border-orange-500">
-              <CardHeader className="bg-black text-white">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
+              <CardHeader className="bg-black text-white p-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
                   Step 1: Group Information
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6 space-y-6">
+              <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-black mb-2">Group Type:</label>
                   <select
@@ -1353,7 +1353,7 @@ export default function QualificationCredentialsPage() {
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8">
+          <div className="flex justify-between mt-6 mb-20 sm:mb-8">
             <Button
               onClick={prevStep}
               disabled={currentStep === 1}
@@ -1368,7 +1368,7 @@ export default function QualificationCredentialsPage() {
                 Next
               </Button>
             ) : (
-              <div className="flex gap-4">
+              <div className="flex gap-2 sm:gap-4">
                 {showContinueButton && !showCalculateButton && (
                   <Button onClick={handleNextQuestion} className="bg-orange-500 hover:bg-orange-600 text-white">
                     Continue
@@ -1381,7 +1381,7 @@ export default function QualificationCredentialsPage() {
                     className="bg-orange-500 hover:bg-orange-600 text-white"
                     disabled={!canCalculateResult()}
                   >
-                    Calculate Result
+                    Calculate
                   </Button>
                 ) : null}
               </div>
@@ -1431,8 +1431,20 @@ export default function QualificationCredentialsPage() {
                       })()}
                     </p>
                   </div>
-                  <div className="mt-6 text-center">
-                    <Button onClick={() => router.push("/")} className="bg-orange-500 hover:bg-orange-600 text-white">
+                  <div className="mt-6 flex flex-col items-center gap-3">
+                    {/* Show Lease Success Package button only for qualified users */}
+                    {(result.startsWith("V_") || result === "QUALIFIED") && (
+                      <Button
+                        onClick={() => router.push("/lease-success-package")}
+                        className="px-8 py-2 bg-green-500 hover:bg-green-600 text-white"
+                      >
+                        Proceed to complete Lease Success Package
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => router.push("/")}
+                      className="px-8 py-2 bg-orange-500 hover:bg-orange-600 text-white"
+                    >
                       Exit
                     </Button>
                   </div>

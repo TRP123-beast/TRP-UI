@@ -58,8 +58,8 @@ export default function QualificationPage() {
         </div>
 
         {/* Real Estate Image */}
-        <div className="w-full flex justify-center mb-6">
-          <div className="relative w-full max-w-md h-48 md:h-64">
+        <div className="w-full flex justify-center mb-4 px-4">
+          <div className="relative w-full max-w-md h-40 md:h-64">
             <Image
               src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Real%20estate%20pic.jpg-2mro0crGh9xwKw7hKykA7iesTYH3sR.jpeg"
               alt="Real estate keys and house model"
@@ -69,13 +69,13 @@ export default function QualificationPage() {
           </div>
         </div>
 
-        {/* Main Content - Now only showing the QualificationWizard */}
+        {/* Main Content - QualificationWizard */}
         <div className="container mx-auto px-4 py-2 max-w-3xl overflow-y-auto">
           <QualificationWizard />
         </div>
 
-        {/* Bottom spacing for mobile */}
-        {isMobile && <div className="h-20"></div>}
+        {/* Bottom spacing for mobile - increased for better spacing from navbar */}
+        {isMobile && <div className="h-24"></div>}
       </div>
     </TooltipProvider>
   )

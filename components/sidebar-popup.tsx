@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { Home, Calendar, Users, MessageCircle, Settings, LogOut, Bell, Heart, User, Fingerprint } from "lucide-react"
+import { Home, Calendar, Settings, LogOut, Bell, User, Fingerprint } from "lucide-react"
 
 interface SidebarPopupProps {
   onClose: () => void
@@ -25,11 +25,7 @@ export function SidebarPopup({ onClose }: SidebarPopupProps) {
     },
     { id: "dashboard", label: "Dashboard", icon: Home, path: "/", count: null },
     { id: "calendar", label: "Calendar", icon: Calendar, path: "/calendar", count: null },
-    { id: "showings", label: "Showings", icon: Calendar, path: "/showings", count: null },
-    { id: "offers", label: "Offers", icon: Users, path: "/offers", count: 2 },
-    { id: "messaging", label: "Messaging", icon: MessageCircle, path: "/messaging", count: 3 },
     { id: "notifications", label: "Notifications", icon: Bell, path: "/notifications", count: 1 },
-    { id: "wishlists", label: "Wishlists", icon: Heart, path: "/wishlists", count: null },
     { id: "profile", label: "Profile", icon: User, path: "/profile", count: null },
     { id: "settings", label: "Settings", icon: Settings, path: "/settings", count: null },
   ]
