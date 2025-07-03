@@ -22,12 +22,52 @@ export function TopNav() {
   const [isRecentlyViewedOpen, setIsRecentlyViewedOpen] = useState(false)
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false)
   const [properties, setProperties] = useState<any[]>([])
+  const [shouldShakeNotification, setShouldShakeNotification] = useState(false)
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
 
   // Load properties from localStorage or default to empty array
   useEffect(() => {
     const storedProperties = localStorage.getItem("properties")
     if (storedProperties) {
       setProperties(JSON.parse(storedProperties))
+    }
+  }, [])
+
+  // Update notification count when system notifications change
+  useEffect(() => {
+    const updateNotificationCount = () => {
+      const systemNotifications = JSON.parse(localStorage.getItem("systemNotifications") || "[]")
+      const defaultUnreadCount = 2 // Default unread notifications
+      const systemUnreadCount = systemNotifications.filter((n: any) => !n.read).length
+      setUnreadNotificationCount(defaultUnreadCount + systemUnreadCount)
+    }
+
+    updateNotificationCount()
+
+    // Listen for notification system updates
+    const handleNotificationUpdate = () => {
+      updateNotificationCount()
+    }
+
+    window.addEventListener("notificationSystemUpdated", handleNotificationUpdate)
+
+    return () => {
+      window.removeEventListener("notificationSystemUpdated", handleNotificationUpdate)
+    }
+  }, [])
+
+  // Add shake animation when notifications are added
+  useEffect(() => {
+    const handleNotificationAdded = () => {
+      setShouldShakeNotification(true)
+      setTimeout(() => setShouldShakeNotification(false), 1000) // Stop shaking after 1 second
+    }
+
+    // Listen for custom notification events
+    window.addEventListener("notificationAdded", handleNotificationAdded)
+
+    return () => {
+      window.removeEventListener("notificationAdded", handleNotificationAdded)
     }
   }, [])
 
@@ -99,11 +139,15 @@ export function TopNav() {
                 variant="ghost"
                 size="icon"
                 onClick={toggleNotifications}
-                className="relative"
+                className={`relative ${shouldShakeNotification ? "animate-shake" : ""}`}
                 aria-label="Notifications"
               >
                 <Bell className="h-5 w-5" />
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-medium">
+                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                  </span>
+                )}
               </Button>
               {isNotificationsOpen && <NotificationsMenu onClose={() => setIsNotificationsOpen(false)} />}
             </div>
@@ -155,11 +199,15 @@ export function TopNav() {
                 variant="ghost"
                 size="icon"
                 onClick={toggleNotifications}
-                className="relative"
+                className={`relative ${shouldShakeNotification ? "animate-shake" : ""}`}
                 aria-label="Notifications"
               >
                 <Bell className="h-5 w-5" />
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-medium">
+                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                  </span>
+                )}
               </Button>
               {isNotificationsOpen && <NotificationsMenu onClose={() => setIsNotificationsOpen(false)} />}
             </div>

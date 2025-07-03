@@ -18,79 +18,135 @@ interface Notification {
 }
 
 export function NotificationsMenu({ onClose }: NotificationsMenuProps) {
-  // Mock notifications data with state to allow updates
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      title: "End of Lease Completed",
-      address: "224 King St W #1901, Toronto, ON M5H 1K4, Canada",
-      timestamp: "Mar 28, 2025 9:35 pm",
-      read: false,
-    },
-    {
-      id: "2",
-      title: "End of Lease Completed",
-      address: "224 King St W #1901, Toronto, ON M5H 1K4, Canada",
-      timestamp: "Mar 28, 2025 9:30 pm",
-      read: false,
-    },
-    {
-      id: "3",
-      title: "End of Lease Completed",
-      address: "224 King St W #1901, Toronto, ON M5H 1K4, Canada",
-      timestamp: "Mar 28, 2025 9:25 pm",
-      read: true,
-    },
-    {
-      id: "4",
-      title: "New Property Alert",
-      address: "508 Wellington St W #602, Toronto, ON",
-      timestamp: "Mar 27, 2025 10:15 am",
-      read: true,
-    },
-  ])
+  // Load notifications from localStorage and merge with default ones
+  const [notifications, setNotifications] = useState<Notification[]>([])
 
-  // Store read status in localStorage to persist across sessions
+  // Load notifications on component mount
   useEffect(() => {
-    // Load saved read status from localStorage
-    const savedReadStatus = localStorage.getItem("notificationReadStatus")
-    if (savedReadStatus) {
-      const parsedStatus = JSON.parse(savedReadStatus)
-      setNotifications((prev) =>
-        prev.map((notification) => ({
-          ...notification,
-          read: parsedStatus[notification.id] || notification.read,
-        })),
+    const loadNotifications = () => {
+      // Get system notifications from localStorage
+      const systemNotifications = JSON.parse(localStorage.getItem("systemNotifications") || "[]")
+
+      // Default notifications (existing ones)
+      const defaultNotifications = [
+        {
+          id: "default-1",
+          title: "End of Lease Completed",
+          address: "224 King St W #1901, Toronto, ON M5H 1K4, Canada",
+          timestamp: "Mar 28, 2025 9:35 pm",
+          read: false,
+        },
+        {
+          id: "default-2",
+          title: "End of Lease Completed",
+          address: "224 King St W #1901, Toronto, ON M5H 1K4, Canada",
+          timestamp: "Mar 28, 2025 9:30 pm",
+          read: false,
+        },
+        {
+          id: "default-3",
+          title: "End of Lease Completed",
+          address: "224 King St W #1901, Toronto, ON M5H 1K4, Canada",
+          timestamp: "Mar 28, 2025 9:25 pm",
+          read: true,
+        },
+        {
+          id: "default-4",
+          title: "New Property Alert",
+          address: "508 Wellington St W #602, Toronto, ON",
+          timestamp: "Mar 27, 2025 10:15 am",
+          read: true,
+        },
+      ]
+
+      // Combine system notifications with default ones (system notifications first)
+      const allNotifications = [...systemNotifications, ...defaultNotifications]
+      setNotifications(allNotifications)
+    }
+
+    loadNotifications()
+
+    // Listen for notification system updates
+    const handleNotificationUpdate = (event: CustomEvent) => {
+      setNotifications(
+        event.detail.notifications.concat([
+          {
+            id: "default-1",
+            title: "End of Lease Completed",
+            address: "224 King St W #1901, Toronto, ON M5H 1K4, Canada",
+            timestamp: "Mar 28, 2025 9:35 pm",
+            read: false,
+          },
+          {
+            id: "default-2",
+            title: "End of Lease Completed",
+            address: "224 King St W #1901, Toronto, ON M5H 1K4, Canada",
+            timestamp: "Mar 28, 2025 9:30 pm",
+            read: false,
+          },
+          {
+            id: "default-3",
+            title: "End of Lease Completed",
+            address: "224 King St W #1901, Toronto, ON M5H 1K4, Canada",
+            timestamp: "Mar 28, 2025 9:25 pm",
+            read: true,
+          },
+          {
+            id: "default-4",
+            title: "New Property Alert",
+            address: "508 Wellington St W #602, Toronto, ON",
+            timestamp: "Mar 27, 2025 10:15 am",
+            read: true,
+          },
+        ]),
       )
+    }
+
+    window.addEventListener("notificationSystemUpdated", handleNotificationUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener("notificationSystemUpdated", handleNotificationUpdate as EventListener)
     }
   }, [])
 
-  // Save read status to localStorage whenever it changes
-  useEffect(() => {
-    const readStatus = notifications.reduce(
-      (acc, notification) => {
-        acc[notification.id] = notification.read
-        return acc
-      },
-      {} as Record<string, boolean>,
-    )
-
-    localStorage.setItem("notificationReadStatus", JSON.stringify(readStatus))
-  }, [notifications])
-
   const markAsRead = (id: string) => {
-    setNotifications(
-      notifications.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
+    const updatedNotifications = notifications.map((notification) =>
+      notification.id === id ? { ...notification, read: true } : notification,
     )
-  }
+    setNotifications(updatedNotifications)
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map((notification) => ({ ...notification, read: true })))
+    // Update system notifications in localStorage if it's a system notification
+    if (!id.startsWith("default-")) {
+      const systemNotifications = JSON.parse(localStorage.getItem("systemNotifications") || "[]")
+      const updatedSystemNotifications = systemNotifications.map((notification: any) =>
+        notification.id === id ? { ...notification, read: true } : notification,
+      )
+      localStorage.setItem("systemNotifications", JSON.stringify(updatedSystemNotifications))
+    }
   }
 
   const deleteNotification = (id: string, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent triggering the markAsRead function
-    setNotifications(notifications.filter((notification) => notification.id !== id))
+
+    const updatedNotifications = notifications.filter((notification) => notification.id !== id)
+    setNotifications(updatedNotifications)
+
+    // Update system notifications in localStorage if it's a system notification
+    if (!id.startsWith("default-")) {
+      const systemNotifications = JSON.parse(localStorage.getItem("systemNotifications") || "[]")
+      const updatedSystemNotifications = systemNotifications.filter((notification: any) => notification.id !== id)
+      localStorage.setItem("systemNotifications", JSON.stringify(updatedSystemNotifications))
+    }
+  }
+
+  const markAllAsRead = () => {
+    const updatedNotifications = notifications.map((notification) => ({ ...notification, read: true }))
+    setNotifications(updatedNotifications)
+
+    // Update system notifications in localStorage
+    const systemNotifications = JSON.parse(localStorage.getItem("systemNotifications") || "[]")
+    const updatedSystemNotifications = systemNotifications.map((notification: any) => ({ ...notification, read: true }))
+    localStorage.setItem("systemNotifications", JSON.stringify(updatedSystemNotifications))
   }
 
   const unreadCount = notifications.filter((notification) => !notification.read).length

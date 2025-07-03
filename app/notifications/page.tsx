@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { X, Bell, Trash2 } from "lucide-react"
+import { GroupInvitationNotification } from "@/components/group-invitation-notification"
 
 export default function NotificationsPage() {
   const router = useRouter()
@@ -86,6 +87,14 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notifications List */}
+      {/* Group Invitation Notification */}
+      <GroupInvitationNotification
+        groupName="Downtown Roommates"
+        inviterName="John Doe"
+        onDismiss={() => {
+          // Handle dismissal if needed
+        }}
+      />
       <div className="flex-1 p-3">
         {notifications.length === 0 ? (
           <div className="p-4 text-center text-[#484848] bg-white rounded-lg shadow-sm">No notifications</div>

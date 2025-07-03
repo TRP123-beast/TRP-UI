@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Upload, Download, Check, Plus, Minus, ChevronDown } from "lucide-react"
+import { Upload, Download, Check, Plus, Minus, ChevronDown, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { useMobile } from "@/hooks/use-mobile"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { ToastContainer } from "@/components/toast-notification-manager"
+import { cn } from "@/lib/utils" // Import cn for conditional class names
 
 // Mock user data - in a real app, this would come from an API
 const mockUserData = {
@@ -79,7 +79,7 @@ export default function LeaseSuccessPackagePage() {
     },
 
     // Financial history
-    employmentStatus: "",
+    employmentStatus: [] as string[], // Changed to array for multi-select
     position: "",
     companyName: "",
     companyWebsite: "",
@@ -111,6 +111,7 @@ export default function LeaseSuccessPackagePage() {
     evicted: false,
     refusedRent: false,
     felonyConviction: false,
+    signedExclusivity: false, // Added new checkbox
     additionalInfo: "",
     budget: "",
     additionalDeposit: false,
@@ -125,6 +126,7 @@ export default function LeaseSuccessPackagePage() {
     creditReport: null as File | null,
     hasCreditReport: false,
     creditReportTiming: "",
+    resume: null as File | null,
 
     // Credit check
     cardNumber: "",
@@ -132,29 +134,126 @@ export default function LeaseSuccessPackagePage() {
     cvc: "",
     postalCode: "",
     termsAccepted: false,
+
+    // Social links and personal description for cover letter
+    linkedinUrl: "",
+    twitterUrl: "",
+    personalDescription: "",
   })
 
+  // Update the state management section to include new states for group workflow
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
   const [showInviteNonLeaseModal, setShowInviteNonLeaseModal] = useState(false)
   const [showInviteGuarantorModal, setShowInviteGuarantorModal] = useState(false)
+  const [showAddApplicantGuarantorModal, setShowAddApplicantGuarantorModal] = useState(false)
+  const [showAdditionalIncomeModal, setShowAdditionalIncomeModal] = useState(false)
+  const [groupCreated, setGroupCreated] = useState(false)
+  const [groupBudgetData, setGroupBudgetData] = useState({
+    individualBudget: 2500,
+    group1Budget: 3500,
+    group1Name: "",
+    leaseholdersName: "Primary Leaseholders",
+    leaseholdersList: ["John Doe"],
+    addedMembers: [] as Array<{
+      firstName: string
+      lastName: string
+      contributionAmount: string
+      email?: string
+      phone?: string
+    }>,
+  })
+  const [singleKeyScore, setSingleKeyScore] = useState("AAA - Excellent Credit Profile")
+  const [newApplicantGuarantor, setNewApplicantGuarantor] = useState({
+    firstName: "",
+    lastName: "",
+    type: "",
+    subType: "",
+    relationship: "",
+    email: "",
+    phone: "",
+    isAdmin: false,
+  })
+  const [additionalIncomeContact, setAdditionalIncomeContact] = useState({
+    name: "",
+    email: "",
+  })
+
   const [groupName, setGroupName] = useState("")
-  const [groupMembers, setGroupMembers] = useState([
-    {
-      name: "",
-      email: "",
-      type: "Occupant",
-      subType: "Applicant",
-      relationship: "",
-      isAdmin: false,
-      isRepresented: false,
-    },
-  ])
+  const [groupMembers, setGroupMembers] = useState([{ name: "", email: "" }])
   const [nonLeaseHolders, setNonLeaseHolders] = useState([{ name: "", email: "" }])
   const [guarantor, setGuarantor] = useState({ name: "", email: "" })
   const [highlightAdditionalIncome, setHighlightAdditionalIncome] = useState(false)
   const [showCoverLetterUploadModal, setShowCoverLetterUploadModal] = useState(false)
   const [uploadedCoverLetter, setUploadedCoverLetter] = useState<File | null>(null)
   const [isPackageCollapsed, setIsPackageCollapsed] = useState(false)
+  const [showAddedMembersInfo, setShowAddedMembersInfo] = useState(false)
+  const [isGroupApplication, setIsGroupApplication] = useState(false)
+  const [activeReviewTab, setActiveReviewTab] = useState("individual")
+  const [pendingLeaseholders, setPendingLeaseholders] = useState<
+    Array<{
+      id: string
+      firstName: string
+      lastName: string
+      email: string
+      phone: string
+      status: string
+      contributionAmount: number
+      rentabilityScore: string
+    }>
+  >([])
+  const [showVerificationModal, setShowVerificationModal] = useState(false)
+  const [verificationInput, setVerificationInput] = useState("")
+  const [isOtherLeaseholdersCollapsed, setIsOtherLeaseholdersCollapsed] = useState(true)
+
+  // Add these new state variables after the existing ones
+  const [showGI1LS4Modal, setShowGI1LS4Modal] = useState(false)
+  const [gi1ls4Step, setGI1LS4Step] = useState("rent-responsibility")
+  const [rentResponsibility, setRentResponsibility] = useState("")
+  const [personalBudget, setPersonalBudget] = useState(2500)
+  const [canPayMoreDeposit, setCanPayMoreDeposit] = useState<boolean | null>(null)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
+  const [gi1ls4Flags, setGI1LS4Flags] = useState({
+    flag17: false, // Fully responsible for rent
+    flag18: false, // Partially responsible for rent
+  })
+
+  const [isInvitedGroupMember, setIsInvitedGroupMember] = useState(false)
+  const [invitationGroupName, setInvitationGroupName] = useState("")
+  const [memberBudgetAmount, setMemberBudgetAmount] = useState(2500)
+  const [rentResponsibilityFlags, setRentResponsibilityFlags] = useState({
+    flag17: false, // Fully responsible
+    flag18: false, // Partially responsible
+  })
+
+  // Add this function after the existing state declarations and before the useEffect hooks
+  const addNotificationToSystem = (notification: {
+    title: string
+    address?: string
+    timestamp: string
+    read: boolean
+  }) => {
+    // Get existing notifications from localStorage
+    const existingNotifications = JSON.parse(localStorage.getItem("systemNotifications") || "[]")
+
+    // Create new notification with unique ID
+    const newNotification = {
+      id: Date.now().toString(),
+      ...notification,
+    }
+
+    // Add to beginning of array (most recent first)
+    const updatedNotifications = [newNotification, ...existingNotifications]
+
+    // Store back to localStorage
+    localStorage.setItem("systemNotifications", JSON.stringify(updatedNotifications))
+
+    // Dispatch event to update notification components
+    window.dispatchEvent(
+      new CustomEvent("notificationSystemUpdated", {
+        detail: { notifications: updatedNotifications },
+      }),
+    )
+  }
 
   const mockAddressSuggestions = [
     "509 Emerald Ave, Oshawa, ON, Canada, L1J 1K5",
@@ -181,6 +280,32 @@ export default function LeaseSuccessPackagePage() {
     supervisorEmail: "",
   })
 
+  // Check for invitation parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const invited = urlParams.get("invited")
+    const groupName = urlParams.get("groupName")
+
+    if (invited === "true" && groupName) {
+      setIsInvitedGroupMember(true)
+      setInvitationGroupName(decodeURIComponent(groupName))
+
+      // Load invitation acceptance data
+      const acceptanceData = localStorage.getItem("groupInvitationAccepted")
+      if (acceptanceData) {
+        const data = JSON.parse(acceptanceData)
+        // Pre-fill form with accepted member details
+        setFormData((prev) => ({
+          ...prev,
+          firstName: data.memberDetails.firstName,
+          lastName: data.memberDetails.lastName,
+          email: data.memberDetails.email,
+          phone: data.memberDetails.phone,
+        }))
+      }
+    }
+  }, [])
+
   const handleAddressSearch = (query: string) => {
     if (query.length > 2) {
       const filtered = mockAddressSuggestions
@@ -189,6 +314,7 @@ export default function LeaseSuccessPackagePage() {
       setAddressSuggestions(filtered)
       setShowSuggestions(true)
     } else {
+      setAddressSuggestions([])
       setShowSuggestions(false)
     }
   }
@@ -252,33 +378,16 @@ export default function LeaseSuccessPackagePage() {
   }
 
   const addGroupMember = () => {
-    setGroupMembers([
-      ...groupMembers,
-      {
-        name: "",
-        email: "",
-        type: "Occupant",
-        subType: "Applicant",
-        relationship: "",
-        isAdmin: false,
-        isRepresented: false,
-      },
-    ])
+    setGroupMembers([...groupMembers, { name: "", email: "" }])
   }
 
   const removeGroupMember = (index: number) => {
     setGroupMembers(groupMembers.filter((_, i) => i !== index))
   }
 
-  const updateGroupMember = (index: number, field: string, value: string | boolean) => {
+  const updateGroupMember = (index: number, field: string, value: string) => {
     const updated = [...groupMembers]
     updated[index] = { ...updated[index], [field]: value }
-
-    // Auto-update sub-type options when type changes
-    if (field === "type") {
-      updated[index].subType = value === "Occupant" ? "Applicant" : "Main Applicant/Co-Signer/Guarantor"
-    }
-
     setGroupMembers(updated)
   }
 
@@ -296,25 +405,173 @@ export default function LeaseSuccessPackagePage() {
     setNonLeaseHolders(updated)
   }
 
+  // Update the state for group member creation to include all required fields
+  const [newGroupMember, setNewGroupMember] = useState({
+    firstName: "",
+    lastName: "",
+    relationship: "",
+    email: "",
+    phone: "",
+    type: "Occupant",
+    subType: "Applicant",
+    isAdmin: false,
+  })
+
+  // Update the handleCreateGroup function
   const handleCreateGroup = () => {
-    // @ts-ignore - Using global toast function
-    window.addToast?.(
-      `Group "${groupName}" created successfully! Invitations sent to ${groupMembers.length} members.`,
-      "success",
-    )
-    setShowCreateGroupModal(false)
-    setGroupName("")
-    setGroupMembers([
+    setGroupBudgetData((prev) => ({
+      ...prev,
+      group1Name: groupName,
+      leaseholdersList: ["John Doe", `${newGroupMember.firstName} ${newGroupMember.lastName}`],
+      addedMembers: [
+        ...prev.addedMembers,
+        {
+          firstName: newGroupMember.firstName,
+          lastName: newGroupMember.lastName,
+          email: newGroupMember.email,
+          phone: newGroupMember.phone,
+          contributionAmount: "0", // Default contribution
+        },
+      ],
+    }))
+
+    // Add to pending leaseholders
+    setPendingLeaseholders((prev) => [
+      ...prev,
       {
-        name: "",
-        email: "",
-        type: "Occupant",
-        subType: "Applicant",
-        relationship: "",
-        isAdmin: false,
-        isRepresented: false,
+        id: Date.now().toString(),
+        firstName: newGroupMember.firstName,
+        lastName: newGroupMember.lastName,
+        email: newGroupMember.email,
+        phone: newGroupMember.phone,
+        status: "Pending",
+        contributionAmount: 0,
+        rentabilityScore: "Pending",
       },
     ])
+
+    setGroupCreated(true)
+
+    // Add notification to the system
+    addNotificationToSystem({
+      title: "Group Created Successfully!",
+      address: `Group "${groupName}" created. Invitation sent to ${newGroupMember.firstName} ${newGroupMember.lastName}.`,
+      timestamp: new Date().toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      read: false,
+    })
+
+    // @ts-ignore - Using global toast function
+    window.addToast?.(
+      `Group "${groupName}" created successfully! Invitation sent to ${newGroupMember.firstName} ${newGroupMember.lastName}.`,
+      "success",
+    )
+
+    // Dispatch custom event for notification animation
+    window.dispatchEvent(new Event("notificationAdded"))
+
+    // Store the member data for potential future use
+    console.log("New group member data:", newGroupMember)
+
+    setShowCreateGroupModal(false)
+    setGroupName("")
+    setNewGroupMember({
+      firstName: "",
+      lastName: "",
+      relationship: "",
+      email: "",
+      phone: "",
+      type: "Occupant",
+      subType: "Applicant",
+      isAdmin: false,
+    })
+  }
+
+  // Add new handler functions
+  const handleAddApplicantGuarantor = () => {
+    const updatedLeaseholdersList = [
+      ...groupBudgetData.leaseholdersList,
+      `${newApplicantGuarantor.firstName} ${newApplicantGuarantor.lastName}`,
+    ]
+
+    setGroupBudgetData((prev) => ({
+      ...prev,
+      leaseholdersList: updatedLeaseholdersList,
+      addedMembers: [
+        ...prev.addedMembers,
+        {
+          firstName: newApplicantGuarantor.firstName,
+          lastName: newApplicantGuarantor.lastName,
+          email: newApplicantGuarantor.email,
+          phone: newApplicantGuarantor.phone,
+          contributionAmount: "0", // Default contribution
+        },
+      ],
+    }))
+
+    // Add to pending leaseholders
+    setPendingLeaseholders((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        firstName: newApplicantGuarantor.firstName,
+        lastName: newApplicantGuarantor.lastName,
+        email: newApplicantGuarantor.email,
+        phone: newApplicantGuarantor.phone,
+        status: "Pending",
+        contributionAmount: 0,
+        rentabilityScore: "Pending",
+      },
+    ])
+
+    // Add notification to the system
+    addNotificationToSystem({
+      title: "Applicant/Guarantor Added!",
+      address: `${newApplicantGuarantor.firstName} ${newApplicantGuarantor.lastName} has been added as ${newApplicantGuarantor.type}.`,
+      timestamp: new Date().toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      read: false,
+    })
+
+    // @ts-ignore - Using global toast function
+    window.addToast?.(
+      `${newApplicantGuarantor.firstName} ${newApplicantGuarantor.lastName} added to primary leaseholders.`,
+      "success",
+    )
+
+    // Dispatch custom event for notification animation
+    window.dispatchEvent(new Event("notificationAdded"))
+
+    setShowAddApplicantGuarantorModal(false)
+    setNewApplicantGuarantor({
+      firstName: "",
+      lastName: "",
+      type: "",
+      subType: "",
+      relationship: "",
+      email: "",
+      phone: "",
+      isAdmin: false,
+    })
+  }
+
+  const handleAdditionalIncomeInvite = () => {
+    // @ts-ignore - Using global toast function
+    window.addToast?.(`Income disclosure invitation sent to ${additionalIncomeContact.name}`, "success")
+    setShowAdditionalIncomeModal(false)
+    setAdditionalIncomeContact({ name: "", email: "" })
   }
 
   const handleInviteNonLeaseHolders = () => {
@@ -355,6 +612,87 @@ export default function LeaseSuccessPackagePage() {
     window.addToast?.("Cover letter uploaded successfully!", "success")
     setShowCoverLetterUploadModal(false)
     setActiveTab("complete")
+  }
+
+  // Add these handler functions after the existing ones
+  const handleGI1LS4Start = (memberId: string) => {
+    setSelectedMemberId(memberId)
+    setShowGI1LS4Modal(true)
+    setGI1LS4Step("rent-responsibility")
+    setRentResponsibility("")
+    setPersonalBudget(2500)
+    setCanPayMoreDeposit(null)
+    setGI1LS4Flags({ flag17: false, flag18: false })
+  }
+
+  const handleRentResponsibilityChange = (value: string) => {
+    setRentResponsibility(value)
+
+    if (value === "fully-responsible") {
+      setGI1LS4Flags((prev) => ({ ...prev, flag17: true, flag18: false }))
+      console.log("[WORKFLOW] FLAG17 set to true - User is fully responsible for rent")
+      setGI1LS4Step("personal-budget")
+    } else if (value === "partially-responsible") {
+      setGI1LS4Flags((prev) => ({ ...prev, flag17: false, flag18: true }))
+      console.log("[WORKFLOW] FLAG18 set to true - User is partially responsible for rent")
+      setGI1LS4Step("personal-budget")
+    } else if (value === "not-responsible") {
+      setGI1LS4Flags((prev) => ({ ...prev, flag17: false, flag18: false }))
+      console.log("[WORKFLOW] Navigating to V_LS2 - User is not responsible for rent")
+      handleNavigateToVLS2()
+    }
+  }
+
+  const handlePersonalBudgetNext = () => {
+    if (rentResponsibility === "fully-responsible") {
+      setGI1LS4Step("deposit-question")
+    } else {
+      // For partially responsible, might have different flow
+      setGI1LS4Step("deposit-question")
+    }
+  }
+
+  const handleDepositResponse = (canPay: boolean) => {
+    setCanPayMoreDeposit(canPay)
+
+    if (canPay) {
+      handleNavigateToVLS1()
+    } else {
+      handleNavigateToVLS654()
+    }
+  }
+
+  const handleNavigateToVLS1 = () => {
+    console.log("[WORKFLOW] Navigating to V_LS1 path - Enhanced offer capabilities")
+
+    // Update group budget with member's contribution
+    handleGroupMemberBudgetUpdate(personalBudget, gi1ls4Flags)
+
+    // @ts-ignore - Using global toast function
+    window.addToast?.("Proceeding to V_LS1 workflow - Enhanced offer capabilities", "success")
+    setShowGI1LS4Modal(false)
+  }
+
+  const handleNavigateToVLS654 = () => {
+    console.log("[WORKFLOW] Navigating to V_LS654 path - Standard offer process")
+
+    // Update group budget with member's contribution
+    handleGroupMemberBudgetUpdate(personalBudget, gi1ls4Flags)
+
+    // @ts-ignore - Using global toast function
+    window.addToast?.("Proceeding to V_LS654 workflow - Standard offer process", "info")
+    setShowGI1LS4Modal(false)
+  }
+
+  const handleNavigateToVLS2 = () => {
+    console.log("[WORKFLOW] Navigating to V_LS2 path - Non-responsible tenant path")
+
+    // For non-responsible members, don't add to budget but still update flags
+    setRentResponsibilityFlags(gi1ls4Flags)
+
+    // @ts-ignore - Using global toast function
+    window.addToast?.("Proceeding to V_LS2 workflow - Non-responsible tenant path", "info")
+    setShowGI1LS4Modal(false)
   }
 
   const renderInternationalStudentForm = () => (
@@ -467,7 +805,18 @@ export default function LeaseSuccessPackagePage() {
             placeholder="Start typing your address..."
             required
           />
-          <p className="text-xs text-gray-500 mt-1">For best results use the address shown on your driver's license</p>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                  Can’t find address <Info className="h-3 w-3" />
+                </p>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>For best results use the address shown on your driver's license</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <div>
           <label className="block text-sm font-medium mb-2">SSN/SIN</label>
@@ -500,7 +849,7 @@ export default function LeaseSuccessPackagePage() {
   const renderAddressHistoryStep = () => (
     <div className="space-y-6">
       {/* Current Address */}
-      <div className="border rounded-lg p-4">
+      <div className="border rounded-lg p-4 bg-white">
         <h3 className="font-semibold mb-4">Current Address</h3>
         <div className="space-y-4">
           <div className="relative">
@@ -525,7 +874,7 @@ export default function LeaseSuccessPackagePage() {
                   <div
                     key={index}
                     className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                    onClick={() => {
+                    onMouseDown={() => {
                       updateNestedFormData("currentAddressDetails", "address", suggestion)
                       setShowSuggestions(false)
                     }}
@@ -581,7 +930,7 @@ export default function LeaseSuccessPackagePage() {
       </div>
 
       {/* Landlord Reference */}
-      <div className="border rounded-lg p-4">
+      <div className="border rounded-lg p-4 bg-white">
         <h3 className="font-semibold mb-2">Landlord Reference</h3>
         <p className="text-sm text-gray-600 mb-4">
           Including landlord references will guarantee a higher success rate.
@@ -641,6 +990,7 @@ export default function LeaseSuccessPackagePage() {
             id="noLandlord"
             checked={formData.currentAddressDetails.noCurrentLandlord}
             onCheckedChange={(checked) => updateNestedFormData("currentAddressDetails", "noCurrentLandlord", checked)}
+            className="h-3 w-3 md:h-4 md:w-4"
           />
           <label htmlFor="noLandlord" className="text-sm">
             I do not have a current landlord
@@ -649,7 +999,7 @@ export default function LeaseSuccessPackagePage() {
       </div>
 
       {/* Previous Address */}
-      <div className="border rounded-lg p-4">
+      <div className="border rounded-lg p-4 bg-white">
         <h3 className="font-semibold mb-4">Previous Address</h3>
         <div className="space-y-4">
           <div className="relative">
@@ -670,7 +1020,7 @@ export default function LeaseSuccessPackagePage() {
                   <div
                     key={index}
                     className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
-                    onClick={() => {
+                    onMouseDown={() => {
                       updateNestedFormData("previousAddress", "address", suggestion)
                       setShowSuggestions(false)
                     }}
@@ -730,7 +1080,7 @@ export default function LeaseSuccessPackagePage() {
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
-                  className="text-red-500 border-red-500 hover:bg-red-50"
+                  className="text-red-500 border-red-500 hover:bg-red-50 bg-transparent"
                   onClick={() => {
                     updateNestedFormData("previousAddress", "address", "")
                     updateNestedFormData("previousAddress", "unit", "")
@@ -764,322 +1114,345 @@ export default function LeaseSuccessPackagePage() {
     </div>
   )
 
-  const renderFinancialHistoryStep = () => (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-2">Employment Status *</label>
-        <select
-          value={formData.employmentStatus}
-          onChange={(e) => updateFormData("employmentStatus", e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-md"
-          required
-        >
-          <option value="">Choose</option>
-          <option value="full-time">Full-Time</option>
-          <option value="part-time">Part-Time</option>
-          <option value="self-employed">Self-Employed</option>
-          <option value="retired">Retired</option>
-          <option value="unemployed">Unemployed</option>
-          <option value="full-time-part-time">Full-Time, Part-Time</option>
-          <option value="full-time-self-employed">Full-Time, Self-Employed</option>
-          <option value="part-time-self-employed">Part-Time, Self-Employed</option>
-          <option value="full-time-part-time-self-employed">Full-Time, Part-Time, Self-Employed</option>
-        </select>
-      </div>
+  const renderFinancialHistoryStep = () => {
+    const employmentOptions = ["Full-Time", "Part-Time", "Self-Employed", "Retired", "Unemployed"]
+    const showDetailedEmploymentFields = formData.employmentStatus.some((status) =>
+      ["Full-Time", "Part-Time", "Self-Employed"].includes(status),
+    )
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    const handleEmploymentStatusChange = (status: string, checked: boolean) => {
+      let newStatuses = [...formData.employmentStatus]
+
+      if (checked) {
+        if (status === "Retired" || status === "Unemployed") {
+          newStatuses = [status] // Exclusive selection
+        } else {
+          newStatuses = newStatuses.filter((s) => s !== "Retired" && s !== "Unemployed") // Remove exclusive if other selected
+          newStatuses.push(status)
+        }
+      } else {
+        newStatuses = newStatuses.filter((s) => s !== status)
+      }
+      updateFormData("employmentStatus", newStatuses)
+    }
+
+    return (
+      <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Position Held</label>
-          <Input value={formData.position} onChange={(e) => updateFormData("position", e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Company Name *</label>
-          <Input
-            value={formData.companyName}
-            onChange={(e) => updateFormData("companyName", e.target.value)}
-            required
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Company Website</label>
-          <Input
-            type="url"
-            value={formData.companyWebsite}
-            onChange={(e) => updateFormData("companyWebsite", e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Length of Employment *</label>
-          <Input
-            value={formData.employmentLength}
-            onChange={(e) => updateFormData("employmentLength", e.target.value)}
-            placeholder="e.g., 2 years"
-            required
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Supervisor Name *</label>
-          <Input
-            value={formData.supervisorName}
-            onChange={(e) => updateFormData("supervisorName", e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Supervisor Phone *</label>
-          <Input
-            type="tel"
-            value={formData.supervisorPhone}
-            onChange={(e) => updateFormData("supervisorPhone", e.target.value)}
-            required
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-2">Supervisor Email *</label>
-        <Input
-          type="email"
-          value={formData.supervisorEmail}
-          onChange={(e) => updateFormData("supervisorEmail", e.target.value)}
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-2">
-          Please provide any additional information about your current employment situation
-        </label>
-        <Textarea
-          value={formData.additionalEmploymentInfo}
-          onChange={(e) => updateFormData("additionalEmploymentInfo", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      {/* Additional Income Sources Section */}
-      <div className="border-t pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          className={`w-full border-orange-500 text-orange-500 hover:bg-orange-50 ${
-            highlightAdditionalIncome ? "ring-4 ring-orange-300 animate-pulse" : ""
-          }`}
-          onClick={() => {
-            setShowAdditionalIncomeForm(!showAdditionalIncomeForm)
-            setHighlightAdditionalIncome(false)
-          }}
-        >
-          Add Additional Source of Income
-        </Button>
-
-        {/* Show existing additional income sources */}
-        {formData.additionalIncomeSources.length > 0 && (
-          <div className="mt-4 space-y-3">
-            <h4 className="font-medium text-sm">Additional Income Sources:</h4>
-            {formData.additionalIncomeSources.map((source, index) => (
-              <div key={index} className="bg-gray-50 p-3 rounded-lg border">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{source.companyName}</p>
-                    <p className="text-xs text-gray-600">
-                      {source.position} - {source.employmentStatus}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {source.supervisorName} - {source.supervisorPhone}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-red-500 border-red-500 hover:bg-red-50"
-                    onClick={() => removeAdditionalIncomeSource(index)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </div>
+          <label className="block text-sm font-medium mb-2">Employment Status *</label>
+          <div className="grid grid-cols-2 gap-2">
+            {employmentOptions.map((status) => (
+              <label key={status} className="flex items-center space-x-2 text-sm">
+                <Checkbox
+                  id={`employment-${status}`}
+                  checked={formData.employmentStatus.includes(status)}
+                  onCheckedChange={(checked) => handleEmploymentStatusChange(status, !!checked)}
+                  className="h-3 w-3 md:h-4 md:w-4" // Smaller on mobile
+                />
+                <span>{status}</span>
+              </label>
             ))}
           </div>
-        )}
+          <p className="text-xs text-gray-500 mt-1">
+            Multiple selections allowed for Full-Time, Part-Time, and Self-Employed. Retired and Unemployed are
+            exclusive options.
+          </p>
+        </div>
 
-        {/* Additional Income Form */}
-        {showAdditionalIncomeForm && (
-          <div className="mt-4 p-4 border rounded-lg bg-gray-50">
-            <h4 className="font-medium mb-4">Additional Income Source</h4>
-
-            <div className="space-y-4">
+        {showDetailedEmploymentFields && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Employment Status *</label>
-                <select
-                  value={currentAdditionalIncome.employmentStatus}
-                  onChange={(e) => updateCurrentAdditionalIncome("employmentStatus", e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md"
-                  required
-                >
-                  <option value="">Choose</option>
-                  <option value="full-time">Full-Time</option>
-                  <option value="part-time">Part-Time</option>
-                  <option value="self-employed">Self-Employed</option>
-                  <option value="retired">Retired</option>
-                  <option value="unemployed">Unemployed</option>
-                  <option value="full-time-part-time">Full-Time, Part-Time</option>
-                  <option value="full-time-self-employed">Full-Time, Self-Employed</option>
-                  <option value="part-time-self-employed">Part-Time, Self-Employed</option>
-                  <option value="full-time-part-time-self-employed">Full-Time, Part-Time, Self-Employed</option>
-                </select>
+                <label className="block text-sm font-medium mb-2">Position Held</label>
+                <Input value={formData.position} onChange={(e) => updateFormData("position", e.target.value)} />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Position Held</label>
-                  <Input
-                    value={currentAdditionalIncome.position}
-                    onChange={(e) => updateCurrentAdditionalIncome("position", e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Company Name *</label>
-                  <Input
-                    value={currentAdditionalIncome.companyName}
-                    onChange={(e) => updateCurrentAdditionalIncome("companyName", e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Company Website</label>
-                  <Input
-                    type="url"
-                    value={currentAdditionalIncome.companyWebsite}
-                    onChange={(e) => updateCurrentAdditionalIncome("companyWebsite", e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Length of Employment *</label>
-                  <Input
-                    value={currentAdditionalIncome.employmentLength}
-                    onChange={(e) => updateCurrentAdditionalIncome("employmentLength", e.target.value)}
-                    placeholder="e.g., 2 years"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Supervisor Name *</label>
-                  <Input
-                    value={currentAdditionalIncome.supervisorName}
-                    onChange={(e) => updateCurrentAdditionalIncome("supervisorName", e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Supervisor Phone *</label>
-                  <Input
-                    type="tel"
-                    value={currentAdditionalIncome.supervisorPhone}
-                    onChange={(e) => updateCurrentAdditionalIncome("supervisorPhone", e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
               <div>
-                <label className="block text-sm font-medium mb-2">Supervisor Email *</label>
+                <label className="block text-sm font-medium mb-2">Company Name *</label>
                 <Input
-                  type="email"
-                  value={currentAdditionalIncome.supervisorEmail}
-                  onChange={(e) => updateCurrentAdditionalIncome("supervisorEmail", e.target.value)}
+                  value={formData.companyName}
+                  onChange={(e) => updateFormData("companyName", e.target.value)}
                   required
                 />
               </div>
+            </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setShowAdditionalIncomeForm(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
-                  onClick={addAdditionalIncomeSource}
-                  disabled={
-                    !currentAdditionalIncome.employmentStatus ||
-                    !currentAdditionalIncome.companyName ||
-                    !currentAdditionalIncome.employmentLength ||
-                    !currentAdditionalIncome.supervisorName ||
-                    !currentAdditionalIncome.supervisorPhone ||
-                    !currentAdditionalIncome.supervisorEmail
-                  }
-                >
-                  Add Income Source
-                </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Company Website</label>
+                <Input
+                  type="url"
+                  value={formData.companyWebsite}
+                  onChange={(e) => updateFormData("companyWebsite", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Length of Employment *</label>
+                <Input
+                  value={formData.employmentLength}
+                  onChange={(e) => updateFormData("employmentLength", e.target.value)}
+                  placeholder="e.g., 2 years"
+                  required
+                />
               </div>
             </div>
-          </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Supervisor Name *</label>
+                <Input
+                  value={formData.supervisorName}
+                  onChange={(e) => updateFormData("supervisorName", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Supervisor Phone *</label>
+                <Input
+                  type="tel"
+                  value={formData.supervisorPhone}
+                  onChange={(e) => updateFormData("supervisorPhone", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Supervisor Email *</label>
+              <Input
+                type="email"
+                value={formData.supervisorEmail}
+                onChange={(e) => updateFormData("supervisorEmail", e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Please provide any additional information about your current employment situation
+              </label>
+              <Textarea
+                value={formData.additionalEmploymentInfo}
+                onChange={(e) => updateFormData("additionalEmploymentInfo", e.target.value)}
+                rows={3}
+              />
+            </div>
+          </>
         )}
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-2">Applicant Annual Income (all sources) *</label>
-        <Input
-          type="number"
-          value={formData.annualIncome}
-          onChange={(e) => updateFormData("annualIncome", e.target.value)}
-          placeholder="Enter number only, no spaces, $ or commas"
-          required
-        />
-        <p className="text-xs text-gray-500 mt-1">Enter number only. no spaces, $ or commas</p>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="verification"
-          checked={formData.verificationChecked}
-          onCheckedChange={(checked) => updateFormData("verificationChecked", checked)}
-        />
-        <label htmlFor="verification" className="text-sm">
-          I verify that this information is correct
-        </label>
-      </div>
-
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setCurrentStep("address-history")}>
-          Back
-        </Button>
-        <Button
-          className={`${
-            formData.verificationChecked && !isQualificationExpired()
-              ? "bg-green-500 hover:bg-green-600"
-              : "bg-gray-400 cursor-not-allowed"
-          } text-white`}
-          onClick={() => {
-            if (highlightAdditionalIncome) {
-              setActiveTab("in-review")
+        {/* Additional Income Sources Section */}
+        <div className="border-t pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            className={`w-full border-orange-500 text-orange-500 hover:bg-orange-50 ${
+              highlightAdditionalIncome ? "ring-4 ring-orange-300 animate-pulse" : ""
+            }`}
+            onClick={() => {
+              setShowAdditionalIncomeForm(!showAdditionalIncomeForm)
               setHighlightAdditionalIncome(false)
-              // @ts-ignore - Using global toast function
-              window.addToast?.("Returning to review with updated income information.", "success")
-            } else {
-              setCurrentStep("additional-info")
-            }
-          }}
-          disabled={!formData.verificationChecked || isQualificationExpired()}
-        >
-          Next
-        </Button>
+            }}
+          >
+            Add Additional Source of Income
+          </Button>
+
+          {/* Show existing additional income sources */}
+          {formData.additionalIncomeSources.length > 0 && (
+            <div className="mt-4 space-y-3">
+              <h4 className="font-medium text-sm">Additional Income Sources:</h4>
+              {formData.additionalIncomeSources.map((source, index) => (
+                <div key={index} className="bg-gray-50 p-3 rounded-lg border">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{source.companyName}</p>
+                      <p className="text-xs text-gray-600">
+                        {source.position} - {source.employmentStatus}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {source.supervisorName} - {source.supervisorPhone}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-red-500 border-red-500 hover:bg-red-50 bg-transparent"
+                      onClick={() => removeAdditionalIncomeSource(index)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Additional Income Form */}
+          {showAdditionalIncomeForm && (
+            <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+              <h4 className="font-medium mb-4">Additional Income Source</h4>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Employment Status *</label>
+                  <select
+                    value={currentAdditionalIncome.employmentStatus}
+                    onChange={(e) => updateCurrentAdditionalIncome("employmentStatus", e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    required
+                  >
+                    <option value="">Choose</option>
+                    <option value="Full-Time">Full-Time</option>
+                    <option value="Part-Time">Part-Time</option>
+                    <option value="Self-Employed">Self-Employed</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Position Held</label>
+                    <Input
+                      value={currentAdditionalIncome.position}
+                      onChange={(e) => updateCurrentAdditionalIncome("position", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Company Name *</label>
+                    <Input
+                      value={currentAdditionalIncome.companyName}
+                      onChange={(e) => updateCurrentAdditionalIncome("companyName", e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Company Website</label>
+                    <Input
+                      type="url"
+                      value={currentAdditionalIncome.companyWebsite}
+                      onChange={(e) => updateCurrentAdditionalIncome("companyWebsite", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Length of Employment *</label>
+                    <Input
+                      value={currentAdditionalIncome.employmentLength}
+                      onChange={(e) => updateCurrentAdditionalIncome("employmentLength", e.target.value)}
+                      placeholder="e.g., 2 years"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Supervisor Name *</label>
+                    <Input
+                      value={currentAdditionalIncome.supervisorName}
+                      onChange={(e) => updateCurrentAdditionalIncome("supervisorName", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Supervisor Phone *</label>
+                    <Input
+                      type="tel"
+                      value={currentAdditionalIncome.supervisorPhone}
+                      onChange={(e) => updateCurrentAdditionalIncome("supervisorPhone", e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Supervisor Email *</label>
+                  <Input
+                    type="email"
+                    value={currentAdditionalIncome.supervisorEmail}
+                    onChange={(e) => updateCurrentAdditionalIncome("supervisorEmail", e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setShowAdditionalIncomeForm(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                    onClick={addAdditionalIncomeSource}
+                    disabled={
+                      !currentAdditionalIncome.employmentStatus ||
+                      !currentAdditionalIncome.companyName ||
+                      !currentAdditionalIncome.employmentLength ||
+                      !currentAdditionalIncome.supervisorName ||
+                      !currentAdditionalIncome.supervisorPhone ||
+                      !currentAdditionalIncome.supervisorEmail
+                    }
+                  >
+                    Add Income Source
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Applicant Annual Income (all sources) *</label>
+          <Input
+            type="number"
+            value={formData.annualIncome}
+            onChange={(e) => updateFormData("annualIncome", e.target.value)}
+            placeholder="Enter number only, no spaces, $ or commas"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">Enter number only. no spaces, $ or commas</p>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="verification"
+            checked={formData.verificationChecked}
+            onCheckedChange={(checked) => updateFormData("verificationChecked", checked)}
+            className="h-3 w-3 md:h-4 md:w-4"
+          />
+          <label htmlFor="verification" className="text-sm">
+            I verify that this information is correct
+          </label>
+        </div>
+
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={() => setCurrentStep("address-history")}>
+            Back
+          </Button>
+          <Button
+            className={cn(
+              "text-white",
+              formData.verificationChecked && !isQualificationExpired()
+                ? "bg-orange-500 hover:bg-orange-600"
+                : "bg-gray-400 cursor-not-allowed",
+            )}
+            onClick={() => {
+              if (highlightAdditionalIncome) {
+                setActiveTab("in-review")
+                setHighlightAdditionalIncome(false)
+                // @ts-ignore - Using global toast function
+                window.addToast?.("Returning to review with updated income information.", "success")
+              } else {
+                setCurrentStep("additional-info")
+              }
+            }}
+            disabled={!formData.verificationChecked || isQualificationExpired()}
+          >
+            Next
+          </Button>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderAdditionalInfoStep = () => (
     <div className="space-y-6">
@@ -1094,6 +1467,7 @@ export default function LeaseSuccessPackagePage() {
                   name="ownsCar"
                   checked={formData.ownsCar === true}
                   onChange={() => updateFormData("ownsCar", true)}
+                  className="scale-75 md:scale-100"
                 />
                 <span className="text-sm">Yes</span>
               </label>
@@ -1103,6 +1477,7 @@ export default function LeaseSuccessPackagePage() {
                   name="ownsCar"
                   checked={formData.ownsCar === false}
                   onChange={() => updateFormData("ownsCar", false)}
+                  className="scale-75 md:scale-100"
                 />
                 <span className="text-sm">No</span>
               </label>
@@ -1131,6 +1506,7 @@ export default function LeaseSuccessPackagePage() {
                   name="hasPets"
                   checked={formData.hasPets === true}
                   onChange={() => updateFormData("hasPets", true)}
+                  className="scale-75 md:scale-100"
                 />
                 <span className="text-sm">Yes</span>
               </label>
@@ -1140,6 +1516,7 @@ export default function LeaseSuccessPackagePage() {
                   name="hasPets"
                   checked={formData.hasPets === false}
                   onChange={() => updateFormData("hasPets", false)}
+                  className="scale-75 md:scale-100"
                 />
                 <span className="text-sm">No</span>
               </label>
@@ -1168,6 +1545,7 @@ export default function LeaseSuccessPackagePage() {
             { key: "evicted", label: "Have you ever been evicted?" },
             { key: "refusedRent", label: "Have you ever refused to pay rent?" },
             { key: "felonyConviction", label: "Have you ever been convicted of a felony?" },
+            { key: "signedExclusivity", label: "Have you signed an exclusivity agreement with a realtor?" },
           ].map(({ key, label }) => (
             <div key={key} className="flex items-center justify-between">
               <span className="text-sm font-medium">{label}</span>
@@ -1178,6 +1556,7 @@ export default function LeaseSuccessPackagePage() {
                     name={key}
                     checked={formData[key as keyof typeof formData] === true}
                     onChange={() => updateFormData(key, true)}
+                    className="scale-75 md:scale-100"
                   />
                   <span className="text-sm">Yes</span>
                 </label>
@@ -1187,6 +1566,7 @@ export default function LeaseSuccessPackagePage() {
                     name={key}
                     checked={formData[key as keyof typeof formData] === false}
                     onChange={() => updateFormData(key, false)}
+                    className="scale-75 md:scale-100"
                   />
                   <span className="text-sm">No</span>
                 </label>
@@ -1217,7 +1597,7 @@ export default function LeaseSuccessPackagePage() {
         />
       </div>
 
-      <div className="border rounded-lg p-4">
+      <div className="border rounded-lg p-4 bg-white">
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm font-medium">
             In order to present the strongest possible offer, are you able to comfortably set aside more than the
@@ -1230,6 +1610,7 @@ export default function LeaseSuccessPackagePage() {
                 name="additionalDeposit"
                 checked={formData.additionalDeposit === true}
                 onChange={() => updateFormData("additionalDeposit", true)}
+                className="scale-75 md:scale-100"
               />
               <span className="text-sm">Yes</span>
             </label>
@@ -1239,6 +1620,7 @@ export default function LeaseSuccessPackagePage() {
                 name="additionalDeposit"
                 checked={formData.additionalDeposit === false}
                 onChange={() => updateFormData("additionalDeposit", false)}
+                className="scale-75 md:scale-100"
               />
               <span className="text-sm">No</span>
             </label>
@@ -1280,6 +1662,86 @@ export default function LeaseSuccessPackagePage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Add new section for social links and personal description */}
+      <div className="border-t pt-6">
+        <div className="mb-6">
+          <label className="block text-sm font-medium mb-2">Resume Upload</label>
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-orange-400 transition-colors"
+            onClick={() => document.getElementById("resumeUpload")?.click()}
+          >
+            {formData.resume ? (
+              <div className="space-y-2">
+                <div className="w-16 h-16 mx-auto bg-green-100 rounded-lg flex items-center justify-center">
+                  <Check className="h-8 w-8 text-green-600" />
+                </div>
+                <p className="text-sm font-medium text-green-600">{formData.resume.name}</p>
+                <p className="text-xs text-gray-500">{(formData.resume.size / 1024).toFixed(1)} KB</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleFileUpload("resume", null)
+                  }}
+                  className="text-red-500 border-red-500 hover:bg-red-50"
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm text-gray-600">Click to upload or drag and drop</p>
+                <p className="text-xs text-gray-500">PDF, DOC, DOCX (max. 5MB)</p>
+              </>
+            )}
+            <input
+              id="resumeUpload"
+              type="file"
+              className="hidden"
+              accept=".pdf,.doc,.docx"
+              onChange={(e) => handleFileUpload("resume", e.target.files?.[0] || null)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">LinkedIn Profile URL</label>
+            <Input
+              type="url"
+              value={formData.linkedinUrl}
+              onChange={(e) => updateFormData("linkedinUrl", e.target.value)}
+              placeholder="https://linkedin.com/in/yourprofile"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Twitter Profile URL</label>
+            <Input
+              type="url"
+              value={formData.twitterUrl}
+              onChange={(e) => updateFormData("twitterUrl", e.target.value)}
+              placeholder="https://twitter.com/yourusername"
+            />
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium mb-2">Personal Description</label>
+          <Textarea
+            value={formData.personalDescription}
+            onChange={(e) => updateFormData("personalDescription", e.target.value)}
+            placeholder="Tell us about yourself, your interests, lifestyle, etc. This will help personalize your cover letter."
+            rows={4}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            This information will be used to create a more personalized cover letter for your rental applications.
+          </p>
+        </div>
       </div>
 
       <div className="flex justify-between">
@@ -1478,14 +1940,14 @@ export default function LeaseSuccessPackagePage() {
             </div>
           </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-yellow-800 mb-2">NOTE</p>
-            <p className="text-xs text-yellow-700">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p className="text-sm text-gray-800 font-medium mb-2">NOTE</p>
+            <p className="text-xs text-gray-700">
               UPLOAD PROOF NOTICE TO VACATE IF WE TRP DID NOT INITIATE THE CREATION AND UPLOADING OF NOTICE TO VACATE
             </p>
             <div className="mt-2">
               <div
-                className="border-2 border-dashed border-yellow-300 rounded-lg p-3 text-center cursor-pointer hover:border-yellow-400 transition-colors"
+                className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center cursor-pointer hover:border-orange-400 transition-colors"
                 onClick={() => document.getElementById("noticeToVacate")?.click()}
               >
                 {formData.noticeToVacate ? (
@@ -1510,8 +1972,8 @@ export default function LeaseSuccessPackagePage() {
                   </div>
                 ) : (
                   <>
-                    <Upload className="h-6 w-6 mx-auto mb-1 text-yellow-600" />
-                    <p className="text-xs text-yellow-700">Upload Notice to Vacate</p>
+                    <Upload className="h-6 w-6 mx-auto mb-1 text-gray-600" />
+                    <p className="text-xs text-gray-700">Upload Notice to Vacate</p>
                   </>
                 )}
                 <input
@@ -1542,6 +2004,7 @@ export default function LeaseSuccessPackagePage() {
                   value="yes"
                   checked={formData.hasCreditReport === true}
                   onChange={() => updateFormData("hasCreditReport", true)}
+                  className="scale-75 md:scale-100"
                 />
                 <span>Yes</span>
               </label>
@@ -1552,6 +2015,7 @@ export default function LeaseSuccessPackagePage() {
                   value="no"
                   checked={formData.hasCreditReport === false}
                   onChange={(e) => updateFormData("hasCreditReport", false)}
+                  className="scale-75 md:scale-100"
                 />
                 <span>No</span>
               </label>
@@ -1569,6 +2033,7 @@ export default function LeaseSuccessPackagePage() {
                     value="within60"
                     checked={formData.creditReportTiming === "within60"}
                     onChange={(e) => updateFormData("creditReportTiming", e.target.value)}
+                    className="scale-75 md:scale-100"
                   />
                   <span>Within the past 60 days</span>
                 </label>
@@ -1579,6 +2044,7 @@ export default function LeaseSuccessPackagePage() {
                     value="over60"
                     checked={formData.creditReportTiming === "over60"}
                     onChange={(e) => updateFormData("creditReportTiming", e.target.value)}
+                    className="scale-75 md:scale-100"
                   />
                   <span>More than 60 days</span>
                 </label>
@@ -1703,6 +2169,7 @@ export default function LeaseSuccessPackagePage() {
             id="terms"
             checked={formData.termsAccepted}
             onCheckedChange={(checked) => updateFormData("termsAccepted", checked)}
+            className="h-3 w-3 md:h-4 md:w-4"
           />
           <label htmlFor="terms" className="text-sm">
             By clicking here, you accept our terms and conditions for use *
@@ -1732,82 +2199,362 @@ export default function LeaseSuccessPackagePage() {
     </div>
   )
 
+  // Add this function to handle budget updates from group members
+  const handleGroupMemberBudgetUpdate = (memberBudget: number, flags: any) => {
+    setMemberBudgetAmount(memberBudget)
+    setRentResponsibilityFlags(flags)
+
+    // Update group budget calculation
+    const userBudget = Number.parseFloat(formData.budget) || 2500
+    const newGroupBudget = userBudget + memberBudget
+
+    setGroupBudgetData((prev) => ({
+      ...prev,
+      group1Budget: newGroupBudget,
+    }))
+
+    // Log flags for console (as requested)
+    console.log("[WORKFLOW FLAGS]", {
+      FLAG17: flags.flag17,
+      FLAG18: flags.flag18,
+      memberBudget: memberBudget,
+      totalGroupBudget: newGroupBudget,
+    })
+
+    // @ts-ignore - Using global toast function
+    window.addToast?.(`Budget updated! New group budget: $${newGroupBudget.toLocaleString()}`, "success")
+  }
+
+  // Replace the renderInReviewTab function completely
   const renderInReviewTab = () => (
     <div className="space-y-6">
-      <div className="text-center">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Check className="h-8 w-8 text-green-600" />
+      {groupCreated ? (
+        // Group Created Success View with Tabs
+        <div className="space-y-6">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="h-8 w-8 text-green-600" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Your Group Has Been Created Successfully</h2>
+            <p className="text-gray-600 mb-6">
+              Our concierge is working as quickly as possible to review your application to get you out to showings.
+            </p>
+          </div>
+
+          {/* Individual vs Group View Tabs */}
+          {groupCreated || isInvitedGroupMember ? (
+            <>
+              <Tabs value={activeReviewTab} onValueChange={setActiveReviewTab} className="w-full mb-4">
+                <TabsList className="grid w-full grid-cols-2 h-12 mb-4">
+                  <TabsTrigger value="individual" className="h-10">
+                    Individual View
+                  </TabsTrigger>
+                  <TabsTrigger value="group" className="h-10">
+                    Group View
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="individual" className="space-y-4">
+                  <h3 className="font-semibold mb-4">
+                    Maximum Recommended Rent Amount & Rentability Score for Individual
+                  </h3>
+
+                  <div className="bg-white border border-orange-500 rounded-lg p-4">
+                    <h4 className="font-medium text-black mb-2">Individual Budget Amount</h4>
+                    <div className="text-2xl font-bold text-orange-600">
+                      ${groupBudgetData.individualBudget.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-orange-500 rounded-lg p-4">
+                    <h4 className="font-medium text-black mb-3">Primary Leaseholder</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-300">
+                            <th className="text-left py-2 px-3">Name</th>
+                            <th className="text-left py-2 px-3">Email</th>
+                            <th className="text-left py-2 px-3">Phone</th>
+                            <th className="text-left py-2 px-3">Budget</th>
+                            <th className="text-left py-2 px-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 px-3 font-medium">
+                              {formData.firstName} {formData.lastName} (You)
+                            </td>
+                            <td className="py-2 px-3 text-gray-600">{formData.email}</td>
+                            <td className="py-2 px-3 text-gray-600">{formData.phone}</td>
+                            <td className="py-2 px-3 text-gray-600">
+                              ${Number.parseFloat(formData.budget || "2500").toLocaleString()}
+                            </td>
+                            <td className="py-2 px-3">
+                              <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                Qualified
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="group" className="space-y-4">
+                  <h3 className="font-semibold mb-4">
+                    Maximum Recommended Rent Amount & Rentability Score for Your Group
+                  </h3>
+
+                  <div className="bg-white border border-orange-500 rounded-lg p-4">
+                    <h4 className="font-medium text-black mb-2">{groupBudgetData.group1Name} Amount</h4>
+                    <div className="text-2xl font-bold text-orange-600">
+                      <em className="text-base font-bold text-orange-600">Calculation in progress</em>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-orange-500 rounded-lg p-4">
+                    <h4 className="font-medium text-black mb-3">Qualified Leaseholders</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-300">
+                            <th className="text-left py-2 px-3">Name</th>
+                            <th className="text-left py-2 px-3">Email</th>
+                            <th className="text-left py-2 px-3">Phone</th>
+                            <th className="text-left py-2 px-3">Budget</th>
+                            <th className="text-left py-2 px-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 px-3 font-medium">
+                              {formData.firstName} {formData.lastName} (You)
+                            </td>
+                            <td className="py-2 px-3 text-gray-600">{formData.email}</td>
+                            <td className="py-2 px-3 text-gray-600">{formData.phone}</td>
+                            <td className="py-2 px-3 text-gray-600">
+                              ${Number.parseFloat(formData.budget || "2500").toLocaleString()}
+                            </td>
+                            <td className="py-2 px-3">
+                              <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                Qualified
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Pending Leaseholders Table */}
+                  {pendingLeaseholders.length > 0 && (
+                    <div className="bg-white border border-orange-500 rounded-lg p-4">
+                      <div
+                        className="flex items-center justify-between cursor-pointer mb-3"
+                        onClick={() => setIsOtherLeaseholdersCollapsed(!isOtherLeaseholdersCollapsed)}
+                      >
+                        <h4 className="font-medium text-black">Other Leaseholders</h4>
+                        <ChevronDown
+                          className={`h-5 w-5 transition-transform duration-200 ${
+                            isOtherLeaseholdersCollapsed ? "rotate-180" : ""
+                          }`}
+                        />
+                      </div>
+
+                      {!isOtherLeaseholdersCollapsed && (
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-gray-300">
+                                  <th className="text-left py-2 px-3">Name</th>
+                                  <th className="text-left py-2 px-3">Email</th>
+                                  <th className="text-left py-2 px-3">Phone</th>
+                                  <th className="text-left py-2 px-3">Status</th>
+                                  <th className="text-left py-2 px-3">Contribution</th>
+                                  <th className="text-left py-2 px-3">Rentability Score</th>
+                                  <th className="text-left py-2 px-3">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pendingLeaseholders.map((member, index) => (
+                                  <tr key={member.id} className="border-b border-gray-200">
+                                    <td className="py-2 px-3 font-medium">
+                                      {member.firstName} {member.lastName}
+                                    </td>
+                                    <td className="py-2 px-3 text-gray-600">{member.email}</td>
+                                    <td className="py-2 px-3 text-gray-600">{member.phone}</td>
+                                    <td className="py-2 px-3">
+                                      <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
+                                        {member.status}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-3 text-gray-600">${member.contributionAmount}</td>
+                                    <td className="py-2 px-3 text-gray-600">{member.rentabilityScore}</td>
+                                    <td className="py-2 px-3">
+                                      <Button
+                                        size="sm"
+                                        className="bg-orange-500 hover:bg-orange-600 text-white text-xs px-2 py-1"
+                                        onClick={() => handleGI1LS4Start(member.id)}
+                                      >
+                                        Proceed to View
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            * Pending members need to complete their qualification process to contribute to the group
+                            budget.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </>
+          ) : (
+            // Show only individual view
+            <>
+              <h3 className="font-semibold mb-2">Maximum Recommended Rent Amount & Rentability Score for Individual</h3>
+              <div className="text-3xl font-bold text-orange-600 mb-4">$2,500</div>
+              <p className="text-sm text-black">
+                Based on your credit score and combined household income, you have been approved to book showings for
+                properties up to $2,500.
+              </p>
+            </>
+          )}
+
+          {/* Rest of existing approval message and optional methods... */}
+          <div className="bg-white border border-orange-500 rounded-lg p-6">
+            <p className="text-sm text-black mb-4">
+              Based on your credit score and combined household income, you have been approved to book showings for
+              properties up to{" "}
+              <strong>
+                $
+                {activeReviewTab === "individual"
+                  ? groupBudgetData.individualBudget.toLocaleString()
+                  : groupBudgetData.group1Budget.toLocaleString()}
+              </strong>
+              .
+            </p>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
+              <div className="text-sm font-medium text-black">Single Key Score Output:</div>
+              <div className="text-lg font-bold text-orange-600">{singleKeyScore}</div>
+            </div>
+
+            <p className="text-sm text-black">
+              In order to gain access to more properties, consider the following options:
+            </p>
+          </div>
+
+          {/* Optional Methods */}
+          <div>
+            <h3 className="font-semibold mb-4">Optional Methods to Access Additional Properties</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                <span className="text-sm">Add an Applicant or Guarantor to the Lease</span>
+                <Button
+                  size="sm"
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={() => setShowAddApplicantGuarantorModal(true)}
+                >
+                  Start
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                <span className="text-sm">Disclose additional sources of income</span>
+                <Button
+                  size="sm"
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={() => {
+                    setCurrentStep("financial-history")
+                    setActiveTab("lease-success-package")
+                    setHighlightAdditionalIncome(true)
+                    // @ts-ignore - Using global toast function
+                    window.addToast?.("Redirecting to add additional income sources...", "info")
+                  }}
+                >
+                  Start
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <Button variant="outline" onClick={() => setActiveTab("cover-letter")} className="px-8">
+              Skip
+            </Button>
+          </div>
         </div>
-        <h2 className="text-xl font-semibold mb-2">Thank you for your submission</h2>
-        <p className="text-gray-600 mb-6">
-          Our concierge is working as quickly as possible to review your application to get you out to showings.
-        </p>
-      </div>
-
-      <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
-        <h3 className="font-semibold mb-2">Maximum Recommended Rent Amount & Rentability Score for Individual</h3>
-        <div className="text-3xl font-bold text-orange-600 mb-4">$2,500</div>
-        <p className="text-sm text-gray-700">
-          Based on your credit score and combined household income, you have been approved to book showings for
-          properties up to $2,500.
-        </p>
-      </div>
-
-      <div>
-        <h3 className="font-semibold mb-4">Optional Methods to Access Additional Properties</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <span className="text-sm">Create a group and add additional leaseholders</span>
-            <Button
-              size="sm"
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-              onClick={() => setShowCreateGroupModal(true)}
-            >
-              Create Group
-            </Button>
+      ) : (
+        // Original Individual View
+        <div className="space-y-6">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="h-8 w-8 text-green-600" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Thank you for your submission</h2>
+            <p className="text-gray-600 mb-6">
+              Our concierge is working as quickly as possible to review your application to get you out to showings.
+            </p>
           </div>
 
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <span className="text-sm">Add Non-Lease Holders to Lease</span>
-            <Button
-              size="sm"
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-              onClick={() => setShowInviteNonLeaseModal(true)}
-            >
-              Invite
-            </Button>
+          <div className="bg-white border border-orange-500 rounded-lg p-6">
+            <h3 className="font-semibold mb-2">Maximum Recommended Rent Amount & Rentability Score for Individual</h3>
+            <div className="text-3xl font-bold text-orange-600 mb-4">$2,500</div>
+            <p className="text-sm text-black">
+              Based on your credit score and combined household income, you have been approved to book showings for
+              properties up to $2,500.
+            </p>
           </div>
 
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <span className="text-sm">Add a Guarantor to the lease</span>
-            <Button
-              size="sm"
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-              onClick={() => setShowInviteGuarantorModal(true)}
-            >
-              Invite
-            </Button>
+          <div>
+            <h3 className="font-semibold mb-4">Optional Methods to Access Additional Properties</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                <span className="text-sm flex-1 pr-2">Create a group and add additional leaseholders</span>
+                <Button
+                  size="sm"
+                  className="bg-orange-500 hover:bg-orange-600 text-white min-w-[120px] md:min-w-[100px] whitespace-nowrap"
+                  onClick={() => setShowCreateGroupModal(true)}
+                >
+                  Create Group
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                <span className="text-sm">Disclose additional sources of income</span>
+                <Button
+                  size="sm"
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={handleStartAdditionalIncome}
+                >
+                  Start
+                </Button>
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <span className="text-sm">Disclose additional sources of income</span>
+          <div className="flex justify-center space-x-4">
+            <Button variant="outline" onClick={() => setActiveTab("cover-letter")}>
+              Skip
+            </Button>
             <Button
-              size="sm"
               className="bg-orange-500 hover:bg-orange-600 text-white"
-              onClick={handleStartAdditionalIncome}
+              onClick={() => setActiveTab("cover-letter")}
             >
-              Start
+              Submit
             </Button>
           </div>
         </div>
-      </div>
-
-      <div className="flex justify-center space-x-4">
-        <Button variant="outline">Skip</Button>
-        <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setActiveTab("cover-letter")}>
-          Submit
-        </Button>
-      </div>
+      )}
     </div>
   )
 
@@ -1822,25 +2569,40 @@ export default function LeaseSuccessPackagePage() {
       </div>
 
       <div className="bg-white border rounded-lg p-6 max-h-96 overflow-y-auto">
+        {/* Only Individual Cover Letter */}
         <div className="space-y-4 text-sm">
           <div>
-            <p className="font-semibold">John Doe</p>
-            <p>12 Sesame St., Toronto, ON M5T 2C2</p>
-            <p>416-000-1111, johndoe@gmail.com</p>
+            <p className="font-semibold">
+              {formData.firstName} {formData.lastName}
+            </p>
+            <p>{formData.currentAddress}</p>
+            <p>
+              {formData.phone}, {formData.email}
+            </p>
+            {/* Add social links if provided */}
+            {(formData.linkedinUrl || formData.twitterUrl) && (
+              <div className="text-xs text-gray-600">
+                {formData.linkedinUrl && <p>LinkedIn: {formData.linkedinUrl}</p>}
+                {formData.twitterUrl && <p>Twitter: {formData.twitterUrl}</p>}
+              </div>
+            )}
           </div>
 
-          <p>[Date]</p>
+          <p>{new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
 
-          <p>Dear [Landlord Name],</p>
+          <p>Dear [landlord_name],</p>
 
-          <p className="font-semibold">RE: The rental property at [Property Address]</p>
+          <p className="font-semibold">RE: The rental property at [property_address_name]</p>
 
           <p>
-            I am writing today about your apartment advertised for rent at [Property Address]. This apartment would be
-            perfect for my needs as I am looking for a place that is close to amenities and includes parking and laundry
-            services. This apartment is great for us because it is close to our daughter's school and I have family in
-            the area.
+            I am writing today about your apartment advertised for rent at [property_address_name]. This apartment would
+            be perfect for my needs as I am looking for a place that is close to amenities and includes parking and
+            laundry services. This apartment is great for us because it is close to our daughter's school and I have
+            family in the area.
           </p>
+
+          {/* Include personal description if provided */}
+          {formData.personalDescription && <p>{formData.personalDescription}</p>}
 
           <p>
             I am 27 years old and my partner Juan Rodriguez is 28. We would like to rent this apartment for ourselves
@@ -1848,27 +2610,29 @@ export default function LeaseSuccessPackagePage() {
             and is a great cook.
           </p>
 
+          {/* Rest of the existing cover letter content... */}
           <p className="font-semibold">Rental History</p>
           <p>
-            Most recently, I lived at 12 Sesame Street, Toronto. My landlord is Patty Smith (416-000-1111) and he would
-            be willing to provide you with a reference. Prior to that I was living with my parents. Please see my rental
-            history and references, attached.
+            Most recently, I lived at [previous_address]. My landlord is [landlord_reference_name]
+            ([landlord_reference_phone]) and they would be willing to provide you with a reference. Prior to that I was
+            living with my parents. Please see my rental history and references, attached.
           </p>
 
           <p className="font-semibold">Financial Information</p>
           <p>
-            I have attached a recent credit check to this application. As you can see, my credit score is 700, which is
-            considered to be good by Equifax. We have not included my partner's credit report as he has not been in
-            Canada for a long time, and it would not reflect his credit worthiness. However, we have included a letter
-            from his employer stating that he is a valuable and trusted employee.
+            I have attached a recent credit check to this application. As you can see, my credit score is
+            [tenant_credit_score], which is considered to be good by Equifax. We have not included my partner's credit
+            report as they have not been in Canada for a long time, and it would not reflect their credit worthiness.
+            However, we have included a letter from their employer stating that they are a valuable and trusted
+            employee.
           </p>
 
           <p>
-            Our household income is approximately $3000 per month. Our normal expenses, other than rent, are about
-            $1200. I am on Ontario Disability Support Program, which is a secure and guaranteed income. My partner has
-            worked with his employer for 5 years and is expecting a raise this year. We also receive the Canada Child
-            Benefit. I can provide a guarantor if requested. We would be able to setup a pre-authorized payment with you
-            if required.
+            Our household income is approximately [monthly_household_income] per month. Our normal expenses, other than
+            rent, are about [monthly_expenses]. I am on [income_program_or_employment_status], which provides a secure
+            and guaranteed income. My partner has worked with their employer for [years_with_employer] years and is
+            expecting a raise this year. We also receive [additional_income_sources, e.g., Canada Child Benefit]. I can
+            provide a guarantor if requested. We would be able to setup a pre-authorized payment with you if required.
           </p>
 
           <p className="font-semibold">Other Information</p>
@@ -1885,28 +2649,20 @@ export default function LeaseSuccessPackagePage() {
           <p>
             Sincerely,
             <br />
-            John Doe
+            {formData.firstName} {formData.lastName}
           </p>
         </div>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-        <p className="text-sm text-blue-800">
-          <strong>Note:</strong> This cover letter will be automatically customized with the specific property address
-          and landlord information when you submit an offer. If you are part of a group, a group cover letter will also
-          be generated that includes all group members' information.
-        </p>
       </div>
 
       <div className="flex justify-center space-x-4">
         <Button
           variant="outline"
-          className="border-red-500 text-red-500 hover:bg-red-50"
+          className="border-red-500 text-red-500 hover:bg-red-50 bg-transparent"
           onClick={() => setShowCoverLetterUploadModal(true)}
         >
           Decline
         </Button>
-        <Button className="bg-green-500 hover:bg-green-600 text-white" onClick={() => setActiveTab("complete")}>
+        <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setActiveTab("complete")}>
           Approve
         </Button>
       </div>
@@ -1922,20 +2678,80 @@ export default function LeaseSuccessPackagePage() {
         <h2 className="text-xl font-semibold mb-2">You are approved for showings</h2>
       </div>
 
-      <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-        <h3 className="font-semibold mb-2">Maximum Recommended Rent Amount & Rentability Score for Individual</h3>
-        <div className="text-3xl font-bold text-green-600 mb-4">$2,500</div>
-        <p className="text-sm text-gray-700 mb-4">
-          Your request has been received and is under review. In the meantime, your approved budget is $2,500. While you
-          wait, would you still proceed in booking showings for your current approved budget:
+      <div className="bg-white border border-orange-500 rounded-lg p-6 text-center">
+        {groupCreated || isInvitedGroupMember ? (
+          <>
+            <Tabs value={activeReviewTab} onValueChange={setActiveReviewTab} className="w-full mb-4">
+              <TabsList className="grid w-full grid-cols-2 h-12 mb-4">
+                <TabsTrigger value="individual" className="h-10">
+                  Individual
+                </TabsTrigger>
+                <TabsTrigger value="group" className="h-10">
+                  Group
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="individual">
+                <h3 className="font-semibold mb-2">
+                  Maximum Recommended Rent Amount & Rentability Score for Individual
+                </h3>
+                <div className="text-3xl font-bold text-orange-600 mb-4">
+                  ${groupBudgetData.individualBudget.toLocaleString()}
+                </div>
+                <p className="text-sm text-black mb-4">
+                  Your request has been received and is under review. In the meantime, your approved budget as an
+                  individual is ${groupBudgetData.individualBudget.toLocaleString()}. It is intended for you only and
+                  does not reflect the dynamic of your group.
+                </p>
+              </TabsContent>
+
+              <TabsContent value="group">
+                <h3 className="font-semibold mb-2">
+                  Maximum Recommended Rent Amount & Rentability Score for {groupBudgetData.group1Name}
+                </h3>
+                <div className="text-3xl font-bold text-orange-600 mb-4">
+                  <em className="text-base font-bold text-orange-600">Calculation in progress</em>
+                </div>
+                <p className="text-sm text-black mb-4">
+                  Your group request has been received and is under review. The group budget is calculation in progress
+                  for qualification of other members.
+                </p>
+              </TabsContent>
+            </Tabs>
+          </>
+        ) : (
+          <>
+            <h3 className="font-semibold mb-2">Maximum Recommended Rent Amount & Rentability Score for Individual</h3>
+            <div className="text-3xl font-bold text-orange-600 mb-4">$2,500</div>
+            <p className="text-sm text-black mb-4">
+              Your request has been received and is under review. In the meantime, your approved budget is $2,500. While
+              you wait, would you still proceed in browsing properties for your current approved budget:
+            </p>
+          </>
+        )}
+
+        <p className="text-sm text-black mb-4">
+          While you wait, would you still proceed in browsing properties for your current approved budget:
         </p>
 
-        <div className="flex justify-center space-x-4">
-          <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-50">
+        <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto text-sm px-2 border-orange-500 text-orange-500 hover:bg-orange-50 bg-transparent"
+          >
             Increase My Budget
           </Button>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => router.push("/cart")}>
-            Booking Showings
+          <Button
+            className="w-full sm:w-auto text-sm px-2 bg-orange-500 hover:bg-orange-600 text-white"
+            onClick={() => router.push("/")}
+          >
+            Browse Properties
+          </Button>
+          <Button
+            className="w-full sm:w-auto text-sm px-2 bg-black hover:bg-gray-800 text-white"
+            onClick={() => router.push("/cart")}
+          >
+            Go to Cart
           </Button>
         </div>
       </div>
@@ -1953,10 +2769,15 @@ export default function LeaseSuccessPackagePage() {
 
         {!isPackageCollapsed && (
           <>
-            <p className="text-sm text-gray-600 mb-4">
-              Your Lease Success Package can be downloaded below. Please note that it is only valid for 60 days starting
-              from the day your credit score was requested.
-            </p>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-black font-medium mb-2">Individual Package Only</p>
+              <p className="text-xs text-gray-700">
+                Your Lease Success Package is personalized for you as an individual. Group packages are not available
+                for download.
+              </p>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">Your Lease Success Package can be downloaded below</p>
 
             <div className="space-y-3">
               {[
@@ -1967,9 +2788,9 @@ export default function LeaseSuccessPackagePage() {
                 "Cover Letter",
                 "Reference Letter",
               ].map((document) => (
-                <div key={document} className="flex items-center justify-between p-3 border rounded-lg">
+                <div key={document} className="flex items-center justify-between p-3 border rounded-lg bg-white">
                   <span className="text-sm font-medium">{document}</span>
-                  <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline" onClick={() => setShowVerificationModal(true)}>
                     <Download className="h-4 w-4 mr-2" />
                     Download
                   </Button>
@@ -1977,64 +2798,96 @@ export default function LeaseSuccessPackagePage() {
               ))}
             </div>
 
-            <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white">
+            <Button
+              className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => setShowVerificationModal(true)}
+            >
               <Download className="h-4 w-4 mr-2" />
               Download Lease Success Package
             </Button>
           </>
         )}
       </div>
+
+      <div className="flex justify-center">
+        <Button
+          variant="outline"
+          className="border-gray-500 text-gray-500 hover:bg-gray-50 bg-transparent"
+          onClick={() => router.push("/")}
+        >
+          Exit
+        </Button>
+      </div>
     </div>
   )
 
+  const removeMember = (indexToRemove: number) => {
+    const memberToRemove = groupBudgetData.addedMembers[indexToRemove]
+    const removedContribution = Number.parseFloat(memberToRemove.contributionAmount) || 0
+
+    // Update added members array
+    const updatedMembers = groupBudgetData.addedMembers.filter((_, index) => index !== indexToRemove)
+
+    // Update leaseholders list
+    const memberNameToRemove = `${memberToRemove.firstName} ${memberToRemove.lastName}`
+    const updatedLeaseholdersList = groupBudgetData.leaseholdersList.filter((name) => name !== memberNameToRemove)
+
+    // Recalculate budget
+    const userBudget = Number.parseFloat(formData.budget) || 2500
+    const remainingContributions = updatedMembers.reduce(
+      (sum, member) => sum + Number.parseFloat(member.contributionAmount),
+      0,
+    )
+    const newGroupBudget = userBudget + remainingContributions
+
+    setGroupBudgetData((prev) => ({
+      ...prev,
+      group1Budget: newGroupBudget,
+      leaseholdersList: updatedLeaseholdersList,
+      addedMembers: updatedMembers,
+    }))
+
+    // @ts-ignore - Using global toast function
+    window.addToast?.(
+      `${memberNameToRemove} removed from group. New budget: $${newGroupBudget.toLocaleString()}`,
+      "success",
+    )
+  }
+
   return (
-    <DashboardLayout hideTopBar={true}>
+    <DashboardLayout>
       <div className="min-h-screen pt-6 pb-20 bg-gray-50">
         <div className="container mx-auto px-4 py-6 pb-24 md:pb-6">
-          {/* Mobile header with back button */}
-          {isMobile && (
-            <div className="flex items-center mb-6">
-              <button
-                className="p-2 rounded-full hover:bg-gray-100 mr-2"
-                onClick={() => router.back()}
-                aria-label="Go back"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <h1 className="text-xl font-semibold">Lease Success Package</h1>
-            </div>
-          )}
-
           <div className="bg-white rounded-xl shadow-md overflow-hidden max-w-4xl mx-auto">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="flex w-full bg-gray-100 overflow-x-auto scrollbar-hide min-h-12">
+              <TabsList className="flex w-full bg-gray-100 overflow-x-auto scrollbar-hide min-h-12 border-none">
                 <TabsTrigger
                   value="qualification"
-                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-xs whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-sm whitespace-nowrap px-2 sm:px-3 py-2 min-w-fit flex-shrink-0"
                 >
                   Qualification
                 </TabsTrigger>
                 <TabsTrigger
                   value="lease-success-package"
-                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-xs whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-sm whitespace-nowrap px-2 sm:px-3 py-2 min-w-fit flex-shrink-0"
                 >
                   Lease Success Package
                 </TabsTrigger>
                 <TabsTrigger
                   value="in-review"
-                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-xs whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-sm whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
                 >
                   In Review
                 </TabsTrigger>
                 <TabsTrigger
                   value="cover-letter"
-                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-xs whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-sm whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
                 >
                   Cover Letter
                 </TabsTrigger>
                 <TabsTrigger
                   value="complete"
-                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-xs whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white text-sm whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
                 >
                   Complete
                 </TabsTrigger>
@@ -2045,8 +2898,14 @@ export default function LeaseSuccessPackagePage() {
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Check className="h-8 w-8 text-green-600" />
                   </div>
-                  <h2 className="text-xl font-semibold mb-2">Qualification Complete</h2>
-                  <p className="text-gray-600">You have successfully passed the pre-qualification process.</p>
+                  <h2 className="text-xl font-semibold mb-2">
+                    {isInvitedGroupMember ? "Group Member Qualification" : "Qualification Complete"}
+                  </h2>
+                  <p className="text-gray-600">
+                    {isInvitedGroupMember
+                      ? "You've successfully passed pre-qualification as a group member. Please proceed to the Lease Success Package to secure your property."
+                      : "You have successfully passed the pre-qualification process."}
+                  </p>
                 </div>
               </TabsContent>
 
@@ -2055,44 +2914,42 @@ export default function LeaseSuccessPackagePage() {
                   renderInternationalStudentForm()
                 ) : (
                   <>
-                    {activeTab === "lease-success-package" && <></>}
-
-                    {currentStep !== "" && (
+                    {currentStep !== "" && activeTab === "lease-success-package" && (
                       <Tabs value={currentStep} onValueChange={setCurrentStep} className="w-full">
-                        <TabsList className="flex w-full bg-gray-100 mb-6 overflow-x-auto scrollbar-hide min-h-12">
+                        <TabsList className="flex w-full bg-gray-100 mb-6 overflow-x-auto scrollbar-hide min-h-12 border-none">
                           <TabsTrigger
                             value="personal-info"
-                            className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                            className="text-sm data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-2 sm:px-3 py-2 min-w-fit flex-shrink-0"
                           >
                             Personal Info
                           </TabsTrigger>
                           <TabsTrigger
                             value="address-history"
-                            className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                            className="text-sm data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-2 sm:px-3 py-2 min-w-fit flex-shrink-0"
                           >
                             Address
                           </TabsTrigger>
                           <TabsTrigger
                             value="financial-history"
-                            className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                            className="text-sm data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
                           >
                             Financial History
                           </TabsTrigger>
                           <TabsTrigger
                             value="additional-info"
-                            className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                            className="text-sm data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
                           >
                             Additional Info
                           </TabsTrigger>
                           <TabsTrigger
                             value="documents"
-                            className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                            className="text-sm data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
                           >
                             Documents
                           </TabsTrigger>
                           <TabsTrigger
                             value="credit-check"
-                            className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
+                            className="text-sm data-[state=active]:bg-orange-500 data-[state=active]:text-white whitespace-nowrap px-3 py-2 min-w-fit flex-shrink-0"
                           >
                             Credit Check
                           </TabsTrigger>
@@ -2130,14 +2987,14 @@ export default function LeaseSuccessPackagePage() {
           </div>
         </div>
       </div>
-      {/* Create Group Modal */}
+      {/* Enhanced Create Group Modal */}
       {showCreateGroupModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Create Group</h3>
 
-            <div className="space-y-6">
-              <div>
+            <div className="space-y-4">
+              <div className="mb-4">
                 <label className="block text-sm font-medium mb-2">Group Name *</label>
                 <Input
                   value={groupName}
@@ -2147,282 +3004,184 @@ export default function LeaseSuccessPackagePage() {
                 />
               </div>
 
-              <div>
-                <h4 className="font-medium mb-4">Group Members</h4>
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Add Group Member</h4>
 
-                {/* Current User (Auto-added as admin) */}
-                <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">John Doe (You)</p>
-                      <p className="text-sm text-gray-600">john.doe@email.com</p>
-                      <div className="flex items-center space-x-4 mt-2">
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Occupant</span>
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Applicant</span>
-                        <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">Admin</span>
-                      </div>
-                    </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">First Name *</label>
+                    <Input
+                      value={newGroupMember.firstName}
+                      onChange={(e) => setNewGroupMember({ ...newGroupMember, firstName: e.target.value })}
+                      placeholder="First Name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Last Name *</label>
+                    <Input
+                      value={newGroupMember.lastName}
+                      onChange={(e) => setNewGroupMember({ ...newGroupMember, lastName: e.target.value })}
+                      placeholder="Last Name"
+                      required
+                    />
                   </div>
                 </div>
 
-                {/* Add New Members */}
-                {groupMembers.map((member, index) => (
-                  <div key={index} className="border rounded-lg p-4 mb-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Name *</label>
-                        <Input
-                          placeholder="Full Name"
-                          value={member.name}
-                          onChange={(e) => updateGroupMember(index, "name", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Email *</label>
-                        <Input
-                          placeholder="Email"
-                          type="email"
-                          value={member.email}
-                          onChange={(e) => updateGroupMember(index, "email", e.target.value)}
-                        />
-                      </div>
-                    </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">Relationship *</label>
+                  <select
+                    value={newGroupMember.relationship}
+                    onChange={(e) => setNewGroupMember({ ...newGroupMember, relationship: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    required
+                  >
+                    <option value="">Select Relationship</option>
+                    <option value="Roommate">Roommate</option>
+                    <option value="Spouse/Partner">Spouse/Partner</option>
+                    <option value="Parent">Parent</option>
+                    <option value="Child">Child</option>
+                    <option value="Sibling">Sibling</option>
+                    <option value="Friend">Friend</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Type *</label>
-                        <select
-                          value={member.type || "Occupant"}
-                          onChange={(e) => updateGroupMember(index, "type", e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                        >
-                          <option value="Occupant">Occupant</option>
-                          <option value="Non-Occupant">Non-Occupant</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Sub-type *</label>
-                        <select
-                          value={member.subType || "Applicant"}
-                          onChange={(e) => updateGroupMember(index, "subType", e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                        >
-                          {(member.type || "Occupant") === "Occupant" ? (
-                            <>
-                              <option value="Applicant">Applicant</option>
-                              <option value="Non-Applicant">Non-Applicant</option>
-                            </>
-                          ) : (
-                            <>
-                              <option value="Main Applicant/Co-Signer/Guarantor">
-                                Main Applicant/Co-Signer/Guarantor
-                              </option>
-                              <option value="Other">Other</option>
-                            </>
-                          )}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Relationship *</label>
-                        <select
-                          value={member.relationship || ""}
-                          onChange={(e) => updateGroupMember(index, "relationship", e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                        >
-                          <option value="">Select relationship</option>
-                          <option value="Parent">Parent</option>
-                          <option value="Spouse/Partner">Spouse/Partner</option>
-                          <option value="Child">Child</option>
-                          <option value="Sibling">Sibling</option>
-                          <option value="Grandparent">Grandparent</option>
-                          <option value="Friend">Friend</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <label className="flex items-center space-x-2">
-                          <Checkbox
-                            checked={member.isAdmin || false}
-                            onCheckedChange={(checked) => updateGroupMember(index, "isAdmin", checked)}
-                            disabled={
-                              member.subType !== "Applicant" && member.subType !== "Main Applicant/Co-Signer/Guarantor"
-                            }
-                          />
-                          <span className="text-sm">Make admin</span>
-                        </label>
-
-                        {member.type === "Occupant" && (
-                          <label className="flex items-center space-x-2">
-                            <Checkbox
-                              checked={member.isRepresented || false}
-                              onCheckedChange={(checked) => updateGroupMember(index, "isRepresented", checked)}
-                            />
-                            <span className="text-sm">I represent this person</span>
-                          </label>
-                        )}
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeGroupMember(index)}
-                        className="text-red-500 border-red-500 hover:bg-red-50"
-                      >
-                        <Minus className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-
-                <Button
-                  variant="outline"
-                  onClick={addGroupMember}
-                  className="w-full border-orange-500 text-orange-500 hover:bg-orange-50"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Group Member
-                </Button>
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <h5 className="font-medium text-yellow-800 mb-2">Group Cover Letter</h5>
-                <p className="text-sm text-yellow-700">
-                  When you submit an offer as a group, we will automatically generate a comprehensive group cover letter
-                  that includes information about all group members, their roles, and combined financial strength. This
-                  will be in addition to individual cover letters for each applicant.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setShowCreateGroupModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-                onClick={handleCreateGroup}
-                disabled={!groupName || groupMembers.some((m) => !m.name || !m.email || !m.relationship)}
-              >
-                Create Group & Send Invites
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Invite Non-Lease Holders Modal */}
-      {showInviteNonLeaseModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Invite Non-Lease Holders</h3>
-
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Add non-lease holders who will live in the property but won't be on the lease.
-              </p>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Non-Lease Holders</label>
-                {nonLeaseHolders.map((holder, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Email *</label>
                     <Input
-                      placeholder="Name"
-                      value={holder.name}
-                      onChange={(e) => updateNonLeaseHolder(index, "name", e.target.value)}
-                    />
-                    <Input
-                      placeholder="Email"
                       type="email"
-                      value={holder.email}
-                      onChange={(e) => updateNonLeaseHolder(index, "email", e.target.value)}
+                      value={newGroupMember.email}
+                      onChange={(e) => setNewGroupMember({ ...newGroupMember, email: e.target.value })}
+                      placeholder="email@example.com"
+                      required
                     />
-                    {nonLeaseHolders.length > 1 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeNonLeaseHolder(index)}
-                        className="text-red-500 border-red-500"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                    )}
                   </div>
-                ))}
-                <Button variant="outline" size="sm" onClick={addNonLeaseHolder} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Non-Lease Holder
-                </Button>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Phone *</label>
+                    <Input
+                      type="tel"
+                      value={newGroupMember.phone}
+                      onChange={(e) => setNewGroupMember({ ...newGroupMember, phone: e.target.value })}
+                      placeholder="(416) 555-0123"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Type *</label>
+                    <select
+                      value={newGroupMember.type}
+                      onChange={(e) => {
+                        const newType = e.target.value
+                        setNewGroupMember({
+                          ...newGroupMember,
+                          type: newType,
+                          subType: newType === "Occupant" ? "Applicant" : "Main Applicant/Co-Signer/Guarantor",
+                        })
+                      }}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                      required
+                    >
+                      <option value="Occupant">Occupant</option>
+                      <option value="Non-Occupant">Non-Occupant</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Sub-type *</label>
+                    <select
+                      value={newGroupMember.subType}
+                      onChange={(e) => setNewGroupMember({ ...newGroupMember, subType: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                      required
+                    >
+                      {newGroupMember.type === "Occupant" ? (
+                        <>
+                          <option value="Applicant">Applicant</option>
+                          <option value="Non-Applicant">Non-Applicant</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="Main Applicant/Co-Signer/Guarantor">Main Applicant/Co-Signer/Guarantor</option>
+                          <option value="Other">Other</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">Admin *</label>
+                  <select
+                    value={newGroupMember.isAdmin ? "Yes" : "No"}
+                    onChange={(e) => setNewGroupMember({ ...newGroupMember, isAdmin: e.target.value === "Yes" })}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    required
+                  >
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Admin privileges allow managing the application, inviting others, and editing group details.
+                  </p>
+                </div>
               </div>
             </div>
 
             <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setShowInviteNonLeaseModal(false)}>
-                Cancel
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCreateGroupModal(false)
+                  setNewGroupMember({
+                    firstName: "",
+                    lastName: "",
+                    relationship: "",
+                    email: "",
+                    phone: "",
+                    type: "Occupant",
+                    subType: "Applicant",
+                    isAdmin: false,
+                  })
+                }}
+              >
+                Skip
               </Button>
               <Button
                 className="bg-orange-500 hover:bg-orange-600 text-white"
-                onClick={handleInviteNonLeaseHolders}
-                disabled={nonLeaseHolders.some((h) => !h.name || !h.email)}
+                onClick={() => {
+                  if (
+                    !groupName ||
+                    !newGroupMember.firstName ||
+                    !newGroupMember.email ||
+                    !newGroupMember.phone ||
+                    !newGroupMember.relationship
+                  ) {
+                    // @ts-ignore - Using global toast function
+                    window.addToast?.("Please fill in all required fields", "error")
+                    return
+                  }
+
+                  handleCreateGroup()
+                }}
+                disabled={
+                  !groupName ||
+                  !newGroupMember.firstName ||
+                  !newGroupMember.email ||
+                  !newGroupMember.phone ||
+                  !newGroupMember.relationship
+                }
               >
-                Send Invites
+                Invite
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Invite Guarantor Modal */}
-      {showInviteGuarantorModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">Invite Guarantor</h3>
-
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Add a guarantor who will co-sign the lease and be financially responsible.
-              </p>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Guarantor Name *</label>
-                <Input
-                  value={guarantor.name}
-                  onChange={(e) => setGuarantor({ ...guarantor, name: e.target.value })}
-                  placeholder="Enter guarantor's full name"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Guarantor Email *</label>
-                <Input
-                  type="email"
-                  value={guarantor.email}
-                  onChange={(e) => setGuarantor({ ...guarantor, email: e.target.value })}
-                  placeholder="Enter guarantor's email"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setShowInviteGuarantorModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-                onClick={handleInviteGuarantor}
-                disabled={!guarantor.name || !guarantor.email}
-              >
-                Send Invite
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Cover Letter Upload Modal */}
       {showCoverLetterUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2501,7 +3260,447 @@ export default function LeaseSuccessPackagePage() {
           </div>
         </div>
       )}
-      <ToastContainer />
+      {/* Add Applicant/Guarantor Modal */}
+      {showAddApplicantGuarantorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">Add an Applicant or Guarantor</h3>
+
+            <div className="space-y-4">
+              {groupBudgetData.leaseholdersList.length > 1 && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-800 mb-2">Current Primary Leaseholders:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {groupBudgetData.leaseholdersList.map((name, index) => (
+                      <span key={index} className="bg-white px-3 py-1 rounded-full text-sm border">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">First Name *</label>
+                  <Input
+                    value={newApplicantGuarantor.firstName}
+                    onChange={(e) => setNewApplicantGuarantor({ ...newApplicantGuarantor, firstName: e.target.value })}
+                    placeholder="First Name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Last Name *</label>
+                  <Input
+                    value={newApplicantGuarantor.lastName}
+                    onChange={(e) => setNewApplicantGuarantor({ ...newApplicantGuarantor, lastName: e.target.value })}
+                    placeholder="Last Name"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Type *</label>
+                  <select
+                    value={newApplicantGuarantor.type}
+                    onChange={(e) => setNewApplicantGuarantor({ ...newApplicantGuarantor, type: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    required
+                  >
+                    <option value="">Select Type</option>
+                    <option value="Applicant">Applicant</option>
+                    <option value="Guarantor">Guarantor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Sub-type *</label>
+                  <select
+                    value={newApplicantGuarantor.subType}
+                    onChange={(e) => setNewApplicantGuarantor({ ...newApplicantGuarantor, subType: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    required
+                  >
+                    <option value="">Select Sub-type</option>
+                    <option value="Co-Signer">Co-Signer</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Relationship *</label>
+                <select
+                  value={newApplicantGuarantor.relationship}
+                  onChange={(e) => setNewApplicantGuarantor({ ...newApplicantGuarantor, relationship: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  required
+                >
+                  <option value="">Select Relationship</option>
+                  <option value="Roommate">Roommate</option>
+                  <option value="Spouse/Partner">Spouse/Partner</option>
+                  <option value="Parent">Parent</option>
+                  <option value="Child">Child</option>
+                  <option value="Sibling">Sibling</option>
+                  <option value="Friend">Friend</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email *</label>
+                  <Input
+                    type="email"
+                    value={newApplicantGuarantor.email}
+                    onChange={(e) => setNewApplicantGuarantor({ ...newApplicantGuarantor, email: e.target.value })}
+                    placeholder="email@example.com"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Phone *</label>
+                  <Input
+                    type="tel"
+                    value={newApplicantGuarantor.phone}
+                    onChange={(e) => setNewApplicantGuarantor({ ...newApplicantGuarantor, phone: e.target.value })}
+                    placeholder="(416) 555-0123"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Admin *</label>
+                <select
+                  value={newApplicantGuarantor.isAdmin ? "Yes" : "No"}
+                  onChange={(e) =>
+                    setNewApplicantGuarantor({ ...newApplicantGuarantor, isAdmin: e.target.value === "Yes" })
+                  }
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  required
+                >
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Admin privileges allow managing the application, inviting others, and editing group details.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddApplicantGuarantorModal(false)
+                  setNewApplicantGuarantor({
+                    firstName: "",
+                    lastName: "",
+                    type: "",
+                    subType: "",
+                    relationship: "",
+                    email: "",
+                    phone: "",
+                    isAdmin: false,
+                  })
+                }}
+              >
+                Skip
+              </Button>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => {
+                  if (
+                    !newApplicantGuarantor.firstName ||
+                    !newApplicantGuarantor.lastName ||
+                    !newApplicantGuarantor.email ||
+                    !newApplicantGuarantor.phone ||
+                    !newApplicantGuarantor.type ||
+                    !newApplicantGuarantor.subType ||
+                    !newApplicantGuarantor.relationship
+                  ) {
+                    // @ts-ignore - Using global toast function
+                    window.addToast?.("Please fill in all required fields", "error")
+                    return
+                  }
+
+                  handleAddApplicantGuarantor()
+                }}
+                disabled={
+                  !newApplicantGuarantor.firstName ||
+                  !newApplicantGuarantor.lastName ||
+                  !newApplicantGuarantor.email ||
+                  !newApplicantGuarantor.phone ||
+                  !newApplicantGuarantor.type ||
+                  !newApplicantGuarantor.subType ||
+                  !newApplicantGuarantor.relationship
+                }
+              >
+                Invite
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Modal */}
+      {showVerificationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Verify Account Ownership</h3>
+
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                To download your Lease Success Package, please verify that you are the account owner by entering your
+                email address.
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Email Address *</label>
+                <Input
+                  type="email"
+                  value={verificationInput}
+                  onChange={(e) => setVerificationInput(e.target.value)}
+                  placeholder="Enter your email address"
+                  required
+                />
+              </div>
+
+              <p className="text-xs text-gray-500">
+                This verification ensures that only the primary leaseholder can download individual documents.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowVerificationModal(false)
+                  setVerificationInput("")
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => {
+                  if (verificationInput.toLowerCase() === formData.email.toLowerCase()) {
+                    // @ts-ignore - Using global toast function
+                    window.addToast?.("Verification successful! Download starting...", "success")
+                    setShowVerificationModal(false)
+                    setVerificationInput("")
+                    // Trigger download logic here
+                  } else {
+                    // @ts-ignore - Using global toast function
+                    window.addToast?.("Email verification failed. Please enter the correct email address.", "error")
+                  }
+                }}
+                disabled={!verificationInput}
+              >
+                Verify & Download
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* GI1-LS4 Workflow Modal */}
+      {showGI1LS4Modal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            {gi1ls4Step === "rent-responsibility" && (
+              <>
+                <h3 className="text-lg font-semibold mb-4">Rent Responsibility Assessment</h3>
+
+                <div className="space-y-4">
+                  <div className="mb-6">
+                    <h4 className="text-base font-medium mb-4">
+                      What is your level of responsibility in paying the rent every month?
+                    </h4>
+
+                    <div className="space-y-3">
+                      <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="rentResponsibility"
+                          value="fully-responsible"
+                          checked={rentResponsibility === "fully-responsible"}
+                          onChange={(e) => handleRentResponsibilityChange(e.target.value)}
+                          className="text-orange-500"
+                        />
+                        <div>
+                          <span className="font-medium">I am fully responsible</span>
+                          <p className="text-sm text-gray-600">
+                            You will be responsible for the entire monthly rent payment
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="rentResponsibility"
+                          value="partially-responsible"
+                          checked={rentResponsibility === "partially-responsible"}
+                          onChange={(e) => handleRentResponsibilityChange(e.target.value)}
+                          className="text-orange-500"
+                        />
+                        <div>
+                          <span className="font-medium">I am partially responsible</span>
+                          <p className="text-sm text-gray-600">
+                            You will share rent payment responsibilities with other group members
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="rentResponsibility"
+                          value="not-responsible"
+                          checked={rentResponsibility === "not-responsible"}
+                          onChange={(e) => handleRentResponsibilityChange(e.target.value)}
+                          className="text-orange-500"
+                        />
+                        <div>
+                          <span className="font-medium">I am not responsible</span>
+                          <p className="text-sm text-gray-600">You will not be responsible for rent payments</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 mt-6">
+                  <Button variant="outline" onClick={() => setShowGI1LS4Modal(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {gi1ls4Step === "personal-budget" && (
+              <>
+                <h3 className="text-lg font-semibold mb-4">Personal Budget Assessment</h3>
+
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-base font-medium mb-4">
+                      What is your personal monthly rental budget towards this group?
+                    </h4>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-4">
+                        <span className="text-sm font-medium min-w-[60px]">$500</span>
+                        <input
+                          type="range"
+                          min="500"
+                          max="5000"
+                          step="50"
+                          value={personalBudget}
+                          onChange={(e) => setPersonalBudget(Number(e.target.value))}
+                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          style={{
+                            background: `linear-gradient(to right, #FFA500 0%, #FFA500 ${((personalBudget - 500) / (5000 - 500)) * 100}%, #e5e7eb ${((personalBudget - 500) / (5000 - 500)) * 100}%, #e5e7eb 100%)`,
+                          }}
+                        />
+                        <span className="text-sm font-medium min-w-[60px]">$5000</span>
+                      </div>
+
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">${personalBudget.toLocaleString()}</div>
+                        <p className="text-sm text-gray-600">Monthly budget contribution</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between mt-6">
+                  <Button variant="outline" onClick={() => setGI1LS4Step("rent-responsibility")}>
+                    Back
+                  </Button>
+                  <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handlePersonalBudgetNext}>
+                    Next
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {gi1ls4Step === "deposit-question" && (
+              <>
+                <h3 className="text-lg font-semibold mb-4">Deposit Capability Assessment</h3>
+
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-base font-medium mb-4">
+                      In the event that you have already viewed properties with our Rental Specialists and are ready to
+                      submit an offer, the mandatory deposit requirement amount is the first and last month's rent.
+                    </h4>
+
+                    <p className="text-sm text-gray-600 mb-6">
+                      In a multiple offer situation where there are competing tenants for the same property, would you
+                      be able to comfortably set aside more than the minimum required amount to give yourself a greater
+                      advantage in the offer presentation?
+                    </p>
+
+                    <div className="space-y-3">
+                      <label className="flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="depositCapability"
+                          value="yes"
+                          checked={canPayMoreDeposit === true}
+                          onChange={() => setCanPayMoreDeposit(true)}
+                          className="text-orange-500"
+                        />
+                        <div>
+                          <span className="font-medium">Yes</span>
+                          <p className="text-sm text-gray-600">
+                            I can provide additional deposit funds for competitive offers
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="depositCapability"
+                          value="no"
+                          checked={canPayMoreDeposit === false}
+                          onChange={() => setCanPayMoreDeposit(false)}
+                          className="text-orange-500"
+                        />
+                        <div>
+                          <span className="font-medium">No</span>
+                          <p className="text-sm text-gray-600">I can only provide the minimum required deposit</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between mt-6">
+                  <Button variant="outline" onClick={() => setGI1LS4Step("personal-budget")}>
+                    Back
+                  </Button>
+                  <Button
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                    onClick={() => {
+                      if (canPayMoreDeposit !== null) {
+                        handleDepositResponse(canPayMoreDeposit)
+                      }
+                    }}
+                    disabled={canPayMoreDeposit === null}
+                  >
+                    Complete Assessment
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }
