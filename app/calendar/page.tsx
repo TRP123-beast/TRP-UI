@@ -8,6 +8,9 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { insertUserSchedules, type ScheduleData } from "@/lib/api"
+import { toast } from "@/hooks/use-toast"
 
 export default function CalendarPage() {
   const router = useRouter()
@@ -16,6 +19,8 @@ export default function CalendarPage() {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   
   // New state for year, month, and date selection
   const [selectedYear, setSelectedYear] = useState<number>(2025)
@@ -58,14 +63,28 @@ export default function CalendarPage() {
   }, [])
 
   const handleTimeSlotClick = (timeSlot: string) => {
-    if (!selectedDate) return
+    console.log('🖱️ Time slot clicked:', timeSlot)
+    console.log('📅 Current selected date:', selectedDate)
+    console.log('📅 Current selected year:', selectedYear)
+    console.log('📅 Current selected month:', selectedMonth)
+    
+    if (!selectedDate) {
+      console.log('❌ No date selected, ignoring click')
+      return
+    }
     
     const blockId = `${selectedYear}-${selectedMonth + 1}-${selectedDate}-${timeSlot}`
+    console.log('🆔 Generated block ID:', blockId)
+    console.log('📋 Current time blocks:', selectedTimeBlocks)
 
     if (selectedTimeBlocks.includes(blockId)) {
-      setSelectedTimeBlocks(selectedTimeBlocks.filter((id) => id !== blockId))
+      const newBlocks = selectedTimeBlocks.filter((id) => id !== blockId)
+      console.log('➖ Removed block, new array:', newBlocks)
+      setSelectedTimeBlocks(newBlocks)
     } else {
-      setSelectedTimeBlocks([...selectedTimeBlocks, blockId])
+      const newBlocks = [...selectedTimeBlocks, blockId]
+      console.log('➕ Added block, new array:', newBlocks)
+      setSelectedTimeBlocks(newBlocks)
     }
   }
 
@@ -88,20 +107,82 @@ export default function CalendarPage() {
     setShowConfirmation(true)
   }
 
-  const handleConfirmAvailability = () => {
-    // Show loading state
+  const handleConfirmAvailability = async () => {
+    console.log('🎯 Starting handleConfirmAvailability...')
+    console.log('📅 Selected Date:', selectedDate)
+    console.log('📅 Selected Year:', selectedYear)
+    console.log('📅 Selected Month:', selectedMonth)
+    console.log('⏰ Selected Time Blocks:', selectedTimeBlocks)
+    
+    // Validate selected date
+    if (!validateSelectedDate()) {
+      console.log('❌ Date validation failed - date is in the past')
+      toast({
+        title: "Invalid Date",
+        description: "You cannot schedule for dates in the past. Please select a future date.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Validate time slots selected
+    if (selectedTimeBlocks.length === 0) {
+      console.log('❌ No time slots selected')
+      toast({
+        title: "No Time Slots Selected",
+        description: "Please select at least one time slot before updating your schedule.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    console.log('✅ Validation passed, proceeding with API call...')
     setIsSubmitting(true)
+    setSubmitError(null)
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
+    try {
+      const schedules = convertTimeSlotsToSchedules()
+      console.log('🔄 Converted schedules:', schedules)
+      
+      if (schedules.length === 0) {
+        throw new Error('No time slots selected')
+      }
+
+      console.log('📤 Calling insertUserSchedules API...')
+      const result = await insertUserSchedules(schedules)
+      console.log('📥 API Result:', result)
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update schedule')
+      }
+
+      console.log('✅ API call successful!')
+      // Show success
       setIsSuccess(true)
+      setShowSuccessDialog(true)
+      
+      // Show success toast
+      toast({
+        title: "Schedule Updated Successfully",
+        description: `Your schedule has been updated with ${schedules.length} time slot(s).`,
+      })
 
-      // Navigate after showing success
-      setTimeout(() => {
-        router.push("/showings?tab=pending")
-      }, 1500)
-    }, 2000)
+      // Clear selected time slots
+      setSelectedTimeBlocks([])
+      
+    } catch (error) {
+      console.error('💥 Error updating schedule:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update schedule'
+      setSubmitError(errorMessage)
+      
+      toast({
+        title: "Error Updating Schedule",
+        description: errorMessage,
+        variant: "destructive"
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleExitPage = () => {
@@ -118,6 +199,50 @@ export default function CalendarPage() {
 
   const handleRefresh = () => {
     setSelectedTimeBlocks([])
+  }
+
+  // Convert time slots to API format
+  const convertTimeSlotsToSchedules = (): ScheduleData[] => {
+    console.log('🔄 Converting time slots to schedules...')
+    console.log('📅 Selected Date:', selectedDate)
+    console.log('📅 Selected Year:', selectedYear)
+    console.log('📅 Selected Month:', selectedMonth)
+    console.log('⏰ Selected Time Blocks:', selectedTimeBlocks)
+    
+    if (!selectedDate) {
+      console.log('❌ No selected date, returning empty array')
+      return []
+    }
+    
+    const schedules = selectedTimeBlocks.map(block => {
+      console.log('🔍 Processing block:', block)
+      const [year, month, date, timeSlot] = block.split('-')
+      const [startTime, endTime] = timeSlot.split(' - ')
+      
+      const schedule = {
+        profile_id: "03f57cc0-c8c0-463a-bc52-a2b091d4d4a6", // Hardcoded for now
+        schedule_date: `${year}-${month.padStart(2, '0')}-${date.padStart(2, '0')}`,
+        start_time: startTime,
+        end_time: endTime
+      }
+      
+      console.log('✅ Converted to schedule:', schedule)
+      return schedule
+    })
+    
+    console.log('📦 Final schedules array:', schedules)
+    return schedules
+  }
+
+  // Validate selected date is not in the past
+  const validateSelectedDate = (): boolean => {
+    if (!selectedDate) return false
+    
+    const selectedDateTime = new Date(selectedYear, selectedMonth, selectedDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Reset time to start of day
+    
+    return selectedDateTime >= today
   }
 
   // Generate calendar days for the selected month
@@ -157,7 +282,7 @@ export default function CalendarPage() {
               <X className="h-5 w-5" />
             </button>
             <span className="text-sm font-medium text-gray-700">
-              {showConfirmation ? "Confirm Availability" : "Select Availability"}
+              {showConfirmation ? "Confirm Schedule" : "Schedule for Showings"}
             </span>
           </div>
         </div>
@@ -192,8 +317,8 @@ export default function CalendarPage() {
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               {/* Day headers */}
               <div className="grid grid-cols-7 gap-px bg-gray-200">
-                {["S", "M", "T", "W", "T", "F", "S"].map((day) => (
-                  <div key={day} className="bg-gray-50 p-2 text-center text-xs font-medium text-gray-500">
+                {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                  <div key={`day-${index}`} className="bg-gray-50 p-2 text-center text-xs font-medium text-gray-500">
                     {day}
                   </div>
                 ))}
@@ -243,6 +368,13 @@ export default function CalendarPage() {
           <div className="h-full flex flex-col">
             {/* Time Selection Header */}
             <div className="p-6 border-b border-gray-200">
+              {/* Error Display */}
+              {submitError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <p className="text-red-700 text-sm">{submitError}</p>
+                </div>
+              )}
+              
               <div className="flex items-center justify-between mb-4">
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold text-gray-800 mb-2">
@@ -343,7 +475,7 @@ export default function CalendarPage() {
                   onClick={handleSaveAvailability}
                   disabled={!selectedDate || selectedTimeBlocks.length === 0}
                 >
-                  Save Availability ({selectedTimeBlocks.length})
+                  Update Schedule ({selectedTimeBlocks.length})
                 </Button>
               </div>
             </div>
@@ -410,7 +542,7 @@ export default function CalendarPage() {
                       <span>Confirmed!</span>
                     </>
                   ) : (
-                    "Confirm Availability"
+                    "Update Schedule"
                   )}
                 </Button>
               </div>
@@ -421,6 +553,29 @@ export default function CalendarPage() {
 
       {/* Mobile Navigation */}
       <MobileNav cartItems={cartItems} />
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Schedule Updated Successfully
+            </DialogTitle>
+            <DialogDescription>
+              Your schedule has been updated successfully. You can continue selecting more time slots or close this dialog.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <Button 
+              onClick={() => setShowSuccessDialog(false)}
+              className="bg-[#FFA500] text-black hover:bg-[#FFA500]/90"
+            >
+              Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
