@@ -1,678 +1,426 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, Plus, X, Bell } from "lucide-react"
-import { format, addDays, subDays } from "date-fns"
+import { ChevronLeft, ChevronRight, X, Calendar, Clock, Info, CheckCircle, Loader2, ChevronDown, RotateCcw } from "lucide-react"
+import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { Sidebar } from "@/components/sidebar"
 import { MobileNav } from "@/components/mobile-nav"
-import { CalendarView } from "@/components/calendar-view"
-import { CalendarSidebar } from "@/components/calendar-sidebar"
-import { TimeBlockSelector } from "@/components/time-block-selector"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { toast } from "@/components/ui/use-toast"
-import { CalendarViewToggle } from "@/components/calendar-view-toggle"
-import { NotificationSettings } from "@/components/notification-settings"
-import { EventNotificationSettings } from "@/components/event-notification-settings"
-
-// Mock data for calendar events
-const INITIAL_MOCK_EVENTS = [
-  {
-    id: "1",
-    title: "101 Park Avenue #303 Showing",
-    address: "101 Park Avenue #303, Toronto, ON",
-    date: "2025-04-16",
-    time: "10:00 am - 11:00 am",
-    members: ["John Doe", "Jane Smith"],
-    agent: "John Smith",
-    color: "#66FCF1",
-    property: {
-      id: "prop1",
-      name: "101 Park Avenue #303",
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    timeBlocks: ["10:00 am - 11:00 am"],
-  },
-  {
-    id: "2",
-    title: "56 Queen Street #801 Showing",
-    address: "56 Queen Street #801, Toronto, ON",
-    date: "2025-04-18",
-    time: "2:00 pm - 3:00 pm",
-    members: ["John Doe", "Sarah Johnson", "Mike Wilson"],
-    agent: "Emily Clark",
-    color: "#FF44EC",
-    property: {
-      id: "prop2",
-      name: "56 Queen Street #801",
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    timeBlocks: ["2:00 pm - 3:00 pm"],
-  },
-  {
-    id: "3",
-    title: "789 King West #1205 Showing",
-    address: "789 King West #1205, Toronto, ON",
-    date: "2025-04-20",
-    time: "11:00 am - 12:00 pm",
-    members: ["John Doe"],
-    agent: "Robert Brown",
-    color: "#6E44FF",
-    property: {
-      id: "prop3",
-      name: "789 King West #1205",
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    timeBlocks: ["11:00 am - 12:00 pm"],
-  },
-]
-
-// Mock properties data for selection
-const MOCK_PROPERTIES = [
-  {
-    id: "prop1",
-    name: "20 O'Neill Rd #238",
-    address: "20 O'Neill Rd #238, North York, ON",
-    image: "/placeholder.svg?height=200&width=300",
-  },
-  {
-    id: "prop2",
-    name: "809 Bay Street #1501",
-    address: "809 Bay Street #1501, Toronto, ON",
-    image: "/placeholder.svg?height=200&width=300",
-  },
-  {
-    id: "prop3",
-    name: "312 Queen Street West",
-    address: "312 Queen Street West, Toronto, ON",
-    image: "/placeholder.svg?height=200&width=300",
-  },
-  {
-    id: "prop4",
-    name: "224 King St W #1901",
-    address: "224 King St W #1901, Toronto, ON",
-    image: "/placeholder.svg?height=200&width=300",
-  },
-  {
-    id: "prop5",
-    name: "508 Wellington St W #602",
-    address: "508 Wellington St W #602, Toronto, ON",
-    image: "/placeholder.svg?height=200&width=300",
-  },
-]
-
-// Array of colors for events
-const EVENT_COLORS = ["#66FCF1", "#FF44EC", "#6E44FF", "#00FFA3", "#45A29E"]
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function CalendarPage() {
   const router = useRouter()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState<string>("April")
-  const [currentYear, setCurrentYear] = useState<number>(2025)
-  const [today] = useState(new Date(2025, 3, 14)) // April 14, 2025
-  const [currentDate, setCurrentDate] = useState<Date>(new Date(2025, 3, 14)) // April 14, 2025
-  const [calendarDays, setCalendarDays] = useState<any[]>([])
-  const [events, setEvents] = useState(INITIAL_MOCK_EVENTS)
-  const [viewType, setViewType] = useState<"month" | "week" | "day" | "3days" | "schedule">("month")
-  const [calendarSidebarOpen, setCalendarSidebarOpen] = useState(false)
-  const [timeBlockSelectorOpen, setTimeBlockSelectorOpen] = useState(false)
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<string[]>([])
-  const [selectedProperty, setSelectedProperty] = useState<any>(null)
-  const [selectedEvent, setSelectedEvent] = useState<any>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [date, setDate] = useState<Date>(new Date(2025, 3, 14))
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
-  const [showShareTooltip, setShowShareTooltip] = useState(false)
+  const [cartItems, setCartItems] = useState<any[]>([])
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  
+  // New state for year, month, and date selection
+  const [selectedYear, setSelectedYear] = useState<number>(2025)
+  const [selectedMonth, setSelectedMonth] = useState<number>(3) // April (0-indexed)
+  const [selectedDate, setSelectedDate] = useState<number | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
-  // New state for notification settings
-  const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false)
-  const [eventNotificationSettingsOpen, setEventNotificationSettingsOpen] = useState(false)
-  const [selectedEventForNotifications, setSelectedEventForNotifications] = useState<any>(null)
+  // Time slots for the selected date
+  const timeSlots = [
+    "8:00 - 9:00 AM",
+    "9:00 - 10:00 AM", 
+    "10:00 - 11:00 AM",
+    "11:00 - 12:00 PM",
+    "12:00 - 1:00 PM",
+    "1:00 - 2:00 PM",
+    "2:00 - 3:00 PM",
+    "3:00 - 4:00 PM",
+    "4:00 - 5:00 PM",
+    "5:00 - 6:00 PM",
+    "6:00 - 7:00 PM",
+    "7:00 - 8:00 PM",
+  ]
 
-  // Add a ref for the calendar container
-  const calendarContainerRef = useRef<HTMLDivElement>(null)
+  // Month names
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ]
 
-  // Generate calendar days for the current month
+  // Generate years for dropdown (current year ± 5 years)
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i)
+
+  // Initialize with current date
   useEffect(() => {
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ]
-    const monthIndex = months.indexOf(currentMonth)
+    const now = new Date()
+    setSelectedYear(now.getFullYear())
+    setSelectedMonth(now.getMonth())
+    setSelectedDate(now.getDate())
+  }, [])
 
-    // Get the first day of the month
-    const firstDay = new Date(currentYear, monthIndex, 1)
-    const lastDay = new Date(currentYear, monthIndex + 1, 0)
+  const handleTimeSlotClick = (timeSlot: string) => {
+    if (!selectedDate) return
+    
+    const blockId = `${selectedYear}-${selectedMonth + 1}-${selectedDate}-${timeSlot}`
 
-    // Get the day of the week for the first day (0 = Sunday, 1 = Monday, etc.)
-    const firstDayOfWeek = firstDay.getDay()
-
-    // Calculate days from previous month to show
-    const daysFromPrevMonth = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
-
-    // Generate array of days
-    const days = []
-
-    // Add days from previous month
-    const prevMonthLastDay = new Date(currentYear, monthIndex, 0).getDate()
-    for (let i = prevMonthLastDay - daysFromPrevMonth + 1; i <= prevMonthLastDay; i++) {
-      days.push({
-        day: i,
-        month: monthIndex === 0 ? 11 : monthIndex - 1,
-        year: monthIndex === 0 ? currentYear - 1 : currentYear,
-        isCurrentMonth: false,
-      })
-    }
-
-    // Add days from current month
-    for (let i = 1; i <= lastDay.getDate(); i++) {
-      days.push({
-        day: i,
-        month: monthIndex,
-        year: currentYear,
-        isCurrentMonth: true,
-      })
-    }
-
-    // Add days from next month to complete the grid (6 rows x 7 days = 42 cells)
-    const remainingDays = 42 - days.length
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push({
-        day: i,
-        month: monthIndex === 11 ? 0 : monthIndex + 1,
-        year: monthIndex === 11 ? currentYear + 1 : currentYear,
-        isCurrentMonth: false,
-      })
-    }
-
-    setCalendarDays(days)
-  }, [currentMonth, currentYear])
-
-  const navigateToPreviousMonth = () => {
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ]
-    const currentMonthIndex = months.indexOf(currentMonth)
-
-    if (currentMonthIndex === 0) {
-      setCurrentMonth(months[11])
-      setCurrentYear(currentYear - 1)
+    if (selectedTimeBlocks.includes(blockId)) {
+      setSelectedTimeBlocks(selectedTimeBlocks.filter((id) => id !== blockId))
     } else {
-      setCurrentMonth(months[currentMonthIndex - 1])
+      setSelectedTimeBlocks([...selectedTimeBlocks, blockId])
     }
   }
 
-  const navigateToNextMonth = () => {
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ]
-    const currentMonthIndex = months.indexOf(currentMonth)
-
-    if (currentMonthIndex === 11) {
-      setCurrentMonth(months[0])
-      setCurrentYear(currentYear + 1)
-    } else {
-      setCurrentMonth(months[currentMonthIndex + 1])
-    }
+  const handleDateSelect = (date: number) => {
+    setSelectedDate(date)
   }
 
-  const navigateToPreviousDay = () => {
-    const newDate = subDays(currentDate, viewType === "3days" ? 3 : viewType === "week" ? 7 : 1)
-    setCurrentDate(newDate)
-
-    // Update month and year if needed
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ]
-    setCurrentMonth(months[newDate.getMonth()])
-    setCurrentYear(newDate.getFullYear())
+  const handleMonthChange = (month: number) => {
+    setSelectedMonth(month)
+    setSelectedDate(null) // Reset selected date when month changes
   }
 
-  const navigateToNextDay = () => {
-    const newDate = addDays(currentDate, viewType === "3days" ? 3 : viewType === "week" ? 7 : 1)
-    setCurrentDate(newDate)
-
-    // Update month and year if needed
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ]
-    setCurrentMonth(months[newDate.getMonth()])
-    setCurrentYear(newDate.getFullYear())
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year)
+    setSelectedDate(null) // Reset selected date when year changes
   }
 
-  const handleTimeBlockSelect = (timeBlock: string) => {
-    if (selectedTimeBlocks.includes(timeBlock)) {
-      setSelectedTimeBlocks(selectedTimeBlocks.filter((block) => block !== timeBlock))
-    } else {
-      setSelectedTimeBlocks([...selectedTimeBlocks, timeBlock])
-    }
+  const handleSaveAvailability = () => {
+    // Show confirmation screen
+    setShowConfirmation(true)
   }
 
-  const handleAddEvent = () => {
-    setTimeBlockSelectorOpen(true)
-    setSelectedTimeBlocks([])
-    setSelectedProperty(null)
-  }
+  const handleConfirmAvailability = () => {
+    // Show loading state
+    setIsSubmitting(true)
 
-  const handleViewTypeChange = (type: "month" | "week" | "day" | "3days" | "schedule") => {
-    setViewType(type)
-    setCalendarSidebarOpen(false)
-  }
-
-  const handleRefresh = () => {
-    setIsRefreshing(true)
-    // Simulate refresh with a timeout but preserve events
+    // Simulate API call
     setTimeout(() => {
-      // We're not clearing events here, so they remain after refresh
-      setIsRefreshing(false)
+      setIsSubmitting(false)
+      setIsSuccess(true)
 
-      // Show toast to indicate refresh is complete
-      toast({
-        title: "Calendar refreshed",
-        description: "Your scheduled showings have been preserved",
-      })
-    }, 1000)
-  }
-
-  const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      setDate(date)
-      setCurrentDate(date)
-      setIsCalendarOpen(false)
-
-      const months = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-      ]
-
-      setCurrentMonth(months[date.getMonth()])
-      setCurrentYear(date.getFullYear())
-    }
-  }
-
-  const handleTimeBlockConfirm = () => {
-    if (selectedProperty && selectedTimeBlocks.length > 0) {
-      // Group time blocks by date
-      const timeBlocksByDate = selectedTimeBlocks.reduce(
-        (acc, block) => {
-          const [dateStr, timeBlock] = block.split("|")
-          if (!dateStr || !timeBlock) return acc
-
-          if (!acc[dateStr]) {
-            acc[dateStr] = []
-          }
-
-          // Extract just the time part from the time block
-          const timeSlot = timeBlock.split("-").pop()?.trim()
-          if (timeSlot) {
-            acc[dateStr].push(timeSlot)
-          }
-
-          return acc
-        },
-        {} as Record<string, string[]>,
-      )
-
-      // Create events for each date
-      const newEvents = Object.entries(timeBlocksByDate).map(([dateStr, timeBlocks], index) => {
-        // Pick a random color from the EVENT_COLORS array
-        const colorIndex = Math.floor(Math.random() * EVENT_COLORS.length)
-
-        return {
-          id: `new-${Date.now()}-${index}`,
-          title: `${selectedProperty.name} Showing`,
-          address: selectedProperty.address || "Address not available",
-          date: dateStr,
-          time: timeBlocks[0] || "Time not specified",
-          members: ["Maureen Wariara"],
-          agent: "TBD",
-          color: EVENT_COLORS[colorIndex],
-          property: selectedProperty,
-          timeBlocks: timeBlocks,
-        }
-      })
-
-      setEvents([...events, ...newEvents])
-      setTimeBlockSelectorOpen(false)
-      setSelectedTimeBlocks([])
-      setSelectedProperty(null)
-
-      toast({
-        title: "Showings scheduled",
-        description: `${newEvents.length} showings have been scheduled for ${selectedProperty.name}`,
-      })
-    }
-  }
-
-  const handleEventClick = (event: any) => {
-    setSelectedEvent(event)
-  }
-
-  const handleDeleteEvent = (eventId: string) => {
-    setEvents(events.filter((event) => event.id !== eventId))
-
-    toast({
-      title: "Showing deleted",
-      description: "The showing has been removed from your calendar",
-    })
-  }
-
-  const handleShareEvent = () => {
-    // Create a shareable link (in a real app, this would be a unique URL)
-    const shareableLink = `https://rental-app.com/showings/${selectedEvent?.id}`
-
-    // Copy to clipboard
-    navigator.clipboard
-      .writeText(shareableLink)
-      .then(() => {
-        // Show both tooltip and toast notification for better visibility
-        setShowShareTooltip(true)
-        setTimeout(() => setShowShareTooltip(false), 2000)
-
-        // Show toast notification
-        toast({
-          title: "Link copied!",
-          description: "Shareable link has been copied to clipboard",
-        })
-      })
-      .catch((err) => {
-        console.error("Could not copy text: ", err)
-        toast({
-          title: "Failed to copy link",
-          description: "Please try again",
-          variant: "destructive",
-        })
-      })
+      // Navigate after showing success
+      setTimeout(() => {
+        router.push("/showings?tab=pending")
+      }, 1500)
+    }, 2000)
   }
 
   const handleExitPage = () => {
     router.push("/")
   }
 
-  // New handler for opening event notification settings
-  const handleOpenEventNotificationSettings = (event: any) => {
-    setSelectedEventForNotifications(event)
-    setEventNotificationSettingsOpen(true)
+  const handleBack = () => {
+    setShowConfirmation(false)
   }
 
-  // Get navigation title based on view type
-  const getNavigationTitle = () => {
-    if (viewType === "day") {
-      return format(currentDate, "EEEE, MMMM d")
-    } else if (viewType === "3days") {
-      const endDate = addDays(currentDate, 2)
-      return `${format(currentDate, "MMM d")} - ${format(endDate, "MMM d")}`
-    } else if (viewType === "week") {
-      const endDate = addDays(currentDate, 6)
-      return `${format(currentDate, "MMM d")} - ${format(endDate, "MMM d")}`
-    } else {
-      return currentMonth
-    }
+  const handleCancel = () => {
+    router.push("/")
   }
 
-  // Add touch handling for swipe gestures
-  useEffect(() => {
-    const container = calendarContainerRef.current
-    if (!container) return
+  const handleRefresh = () => {
+    setSelectedTimeBlocks([])
+  }
 
-    let touchStartX = 0
-    let touchEndX = 0
+  // Generate calendar days for the selected month
+  const generateCalendarDays = () => {
+    const firstDay = new Date(selectedYear, selectedMonth, 1)
+    const lastDay = new Date(selectedYear, selectedMonth + 1, 0)
 
-    const handleTouchStart = (e: TouchEvent) => {
-      touchStartX = e.touches[0].clientX
+    const daysInMonth = lastDay.getDate()
+    const startingDayOfWeek = firstDay.getDay() || 7 // Convert Sunday (0) to 7 for easier calculation
+
+    const calendarDays = []
+
+    // Add empty cells for days before the first day of the month
+    for (let i = 1; i < startingDayOfWeek; i++) {
+      calendarDays.push(null)
     }
 
-    const handleTouchMove = (e: TouchEvent) => {
-      touchEndX = e.touches[0].clientX
+    // Add days of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      calendarDays.push(i)
     }
 
-    const handleTouchEnd = () => {
-      const swipeThreshold = 50 // minimum distance to be considered a swipe
-      const swipeDistance = touchEndX - touchStartX
+    return calendarDays
+  }
 
-      if (Math.abs(swipeDistance) > swipeThreshold) {
-        if (swipeDistance > 0) {
-          // Swipe right - go to previous month/day
-          viewType === "month" ? navigateToPreviousMonth() : navigateToPreviousDay()
-        } else {
-          // Swipe left - go to next month/day
-          viewType === "month" ? navigateToNextMonth() : navigateToNextDay()
-        }
-      }
-    }
-
-    container.addEventListener("touchstart", handleTouchStart)
-    container.addEventListener("touchmove", handleTouchMove)
-    container.addEventListener("touchend", handleTouchEnd)
-
-    return () => {
-      container.removeEventListener("touchstart", handleTouchStart)
-      container.removeEventListener("touchmove", handleTouchMove)
-      container.removeEventListener("touchend", handleTouchEnd)
-    }
-  }, [viewType, currentDate])
+  const calendarDays = generateCalendarDays()
+  const monthName = monthNames[selectedMonth]
+  const selectedDateFormatted = selectedDate ? `${monthName} ${selectedDate}, ${selectedYear}` : "Select a date"
 
   return (
     <div className="flex h-screen bg-white">
-      {/* Sidebar - Only visible on desktop */}
-      <div className="hidden md:block">
-        <Sidebar className={sidebarOpen ? "block" : "hidden md:block"} activePage="calendar" />
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-[#000000] hover:text-[#FFA500] hover:bg-[#FFA500]/10 active:text-[#FFA500] focus:text-[#FFA500]"
-              onClick={handleExitPage}
-              aria-label="Exit calendar"
-            >
-              <X className="h-6 w-6" />
-            </Button>
-
-            <div className="flex items-center gap-2">
-              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" className="text-[#000000] hover:text-[#FFA500] hover:bg-[#FFA500]/10">
-                    <h1 className="text-xl font-medium">{getNavigationTitle()}</h1>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={date} onSelect={handleDateSelect} initialFocus />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-[#000000] h-8 w-8 hover:text-[#FFA500] hover:bg-[#FFA500]/10 hover:shadow-md active:text-[#FFA500] focus:text-[#FFA500] transition-all"
-                onClick={viewType === "month" ? navigateToPreviousMonth : navigateToPreviousDay}
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-[#000000] h-8 w-8 hover:text-[#FFA500] hover:bg-[#FFA500]/10 hover:shadow-md active:text-[#FFA500] focus:text-[#FFA500] transition-all"
-                onClick={viewType === "month" ? navigateToNextMonth : navigateToNextDay}
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-
-          {/* View toggle and notification settings */}
+      {/* Header */}
+      <div className="fixed top-0 left-0 right-0 z-20 bg-white border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setNotificationSettingsOpen(true)}
-              className="text-[#000000] hover:text-[#FFA500] hover:bg-[#FFA500]/10 transition-colors"
-              aria-label="Notification settings"
-            >
-              <Bell className="h-5 w-5" />
-            </Button>
-            <CalendarViewToggle currentView={viewType} onViewChange={handleViewTypeChange} />
+            <button onClick={handleExitPage} className="p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-full" aria-label="Exit page">
+              <X className="h-5 w-5" />
+            </button>
+            <span className="text-sm font-medium text-gray-700">
+              {showConfirmation ? "Confirm Availability" : "Select Availability"}
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* Calendar Header */}
-        {viewType === "month" && (
-          <div className="bg-white text-[#000000] border-b border-gray-200 py-2 shadow-sm">
-            <div className="grid grid-cols-7 text-center">
-              <div className="text-sm font-medium">S</div>
-              <div className="text-sm font-medium">M</div>
-              <div className="text-sm font-medium">T</div>
-              <div className="text-sm font-medium">W</div>
-              <div className="text-sm font-medium">T</div>
-              <div className="text-sm font-medium">F</div>
-              <div className="text-sm font-medium">S</div>
+      {/* Left Sidebar - Month and Date Selection */}
+      <div className={`fixed left-0 top-16 bottom-0 w-80 bg-gray-50 border-r border-gray-200 transform transition-transform duration-300 z-10 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+        <div className="p-4 h-full overflow-y-auto">
+          {/* Month Selection */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Select Month</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {monthNames.map((month, index) => (
+                <button
+                  key={month}
+                  onClick={() => handleMonthChange(index)}
+                  className={`p-2 text-xs rounded-md transition-colors ${
+                    selectedMonth === index
+                      ? 'bg-[#FFA500] text-black'
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {month.substring(0, 3)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">{monthName} {selectedYear}</h3>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              {/* Day headers */}
+              <div className="grid grid-cols-7 gap-px bg-gray-200">
+                {["S", "M", "T", "W", "T", "F", "S"].map((day) => (
+                  <div key={day} className="bg-gray-50 p-2 text-center text-xs font-medium text-gray-500">
+                    {day}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Calendar days */}
+              <div className="grid grid-cols-7 gap-px bg-gray-200">
+                {calendarDays.map((day, index) => (
+                  <button
+                    key={index}
+                    onClick={() => day && handleDateSelect(day)}
+                    disabled={!day}
+                    className={`
+                      p-2 text-sm transition-colors
+                      ${!day ? 'bg-gray-50' : ''}
+                      ${day && selectedDate === day
+                        ? 'bg-[#FFA500] text-black'
+                        : day
+                        ? 'bg-white text-gray-700 hover:bg-gray-100'
+                        : ''
+                      }
+                    `}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Selected Date Info */}
+          {selectedDate && (
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Date</h4>
+              <p className="text-lg font-semibold text-[#FFA500]">{selectedDateFormatted}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedTimeBlocks.filter(block => block.includes(`${selectedYear}-${selectedMonth + 1}-${selectedDate}`)).length} time slots selected
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content - Time Selection */}
+      <div className="flex-1 ml-0 lg:ml-80 pt-16">
+        {!showConfirmation ? (
+          <div className="h-full flex flex-col">
+            {/* Time Selection Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                    {selectedDate ? `Select Time Slots for ${selectedDateFormatted}` : "Select a Date First"}
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    {selectedDate 
+                      ? "Click on time slots to indicate when you're available for property showings."
+                      : "Choose a date from the sidebar to select your available time slots."
+                    }
+                  </p>
+                </div>
+                
+                {/* Year Selection Dropdown - Center */}
+                <div className="flex items-center gap-2 mx-8">
+                  <Calendar className="h-4 w-4 text-[#FFA500]" />
+                  <Select value={selectedYear.toString()} onValueChange={(value) => handleYearChange(parseInt(value))}>
+                    <SelectTrigger className="w-24 h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {years.map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Refresh Icon - Right */}
+                {selectedDate && selectedTimeBlocks.length > 0 && (
+                  <div className="flex-1 flex justify-end">
+                    <button
+                      onClick={handleRefresh}
+                      className="p-2 text-gray-500 hover:text-[#FFA500] hover:bg-gray-100 rounded-full transition-colors"
+                      title="Undo all selected time slots"
+                      aria-label="Undo all selected time slots"
+                    >
+                      <RotateCcw className="h-5 w-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Time Slots Grid */}
+            {selectedDate ? (
+              <div className="flex-1 p-6 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {timeSlots.map((timeSlot) => {
+                    const blockId = `${selectedYear}-${selectedMonth + 1}-${selectedDate}-${timeSlot}`
+                    const isSelected = selectedTimeBlocks.includes(blockId)
+
+                    return (
+                      <button
+                        key={timeSlot}
+                        onClick={() => handleTimeSlotClick(timeSlot)}
+                        className={`
+                          p-4 rounded-lg border-2 transition-all duration-200 text-left
+                          ${isSelected
+                            ? 'border-[#FFA500] bg-[#FFA500] text-black shadow-md'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-[#FFA500] hover:bg-[#FFA500]/5'
+                          }
+                        `}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Clock className={`h-5 w-5 ${isSelected ? 'text-black' : 'text-gray-400'}`} />
+                          <span className="font-medium">{timeSlot}</span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-500 mb-2">No Date Selected</h3>
+                  <p className="text-sm text-gray-400">Choose a date from the sidebar to select time slots</p>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex justify-between">
+                <Button
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-[#FFA500] text-black hover:bg-[#FFA500]/90"
+                  onClick={handleSaveAvailability}
+                  disabled={!selectedDate || selectedTimeBlocks.length === 0}
+                >
+                  Save Availability ({selectedTimeBlocks.length})
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Confirmation Screen */
+          <div className="h-full flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">Confirm Your Availability</h2>
+              <p className="text-sm text-gray-600">Review your selected time slots before confirming</p>
+            </div>
+
+            <div className="flex-1 p-6 overflow-y-auto">
+              <div className="space-y-4">
+                {selectedTimeBlocks.map((block, index) => {
+                  const [year, month, date, timeSlot] = block.split('-')
+                  const monthName = monthNames[parseInt(month) - 1]
+                  
+                  return (
+                    <div key={index} className="bg-white border rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[#FFA500] text-black rounded-full flex items-center justify-center text-sm font-bold">
+                          {date}
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-gray-800">{monthName} {date}, {year}</h3>
+                          <p className="text-sm text-gray-500">{timeSlot}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex justify-between">
+                <Button
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                  onClick={handleBack}
+                >
+                  Back
+                </Button>
+                <Button
+                  disabled={isSubmitting || isSuccess}
+                  className={`
+                    flex items-center gap-2 transition-colors
+                    ${isSuccess
+                      ? "bg-green-500 text-white border-green-500"
+                      : "bg-[#FFA500] text-black hover:bg-[#FFA500]/90"
+                    }
+                  `}
+                  onClick={handleConfirmAvailability}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : isSuccess ? (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Confirmed!</span>
+                    </>
+                  ) : (
+                    "Confirm Availability"
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         )}
-
-        {/* Calendar Grid */}
-        <div className="flex-1 overflow-y-auto bg-white" ref={calendarContainerRef}>
-          <TooltipProvider>
-            <CalendarView
-              days={calendarDays}
-              events={events}
-              viewType={viewType}
-              currentMonth={currentMonth}
-              currentYear={currentYear}
-              currentDate={currentDate}
-              onEventClick={handleEventClick}
-              onDateChange={setCurrentDate}
-              onDeleteEvent={handleDeleteEvent}
-              onShareEvent={handleShareEvent}
-              onConfigureNotifications={handleOpenEventNotificationSettings}
-            />
-          </TooltipProvider>
-        </div>
-
-        {/* Floating Add Button */}
-        <div className="fixed bottom-24 right-6 z-40 md:bottom-6">
-          <Button
-            className="rounded-full w-14 h-14 bg-white text-[#FFA500] border-2 border-[#FFA500] shadow-lg hover:bg-[#FFA500] hover:text-white hover:scale-110 hover:shadow-xl focus:bg-[#FFA500] focus:text-white active:bg-[#FFA500] active:text-white transition-all duration-300"
-            onClick={handleAddEvent}
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
-        </div>
-
-        {/* Mobile Navigation */}
-        <MobileNav cartItems={[]} />
-
-        {/* Calendar Sidebar */}
-        {calendarSidebarOpen && (
-          <CalendarSidebar
-            onClose={() => setCalendarSidebarOpen(false)}
-            onViewTypeChange={handleViewTypeChange}
-            currentViewType={viewType}
-            onRefresh={handleRefresh}
-            isRefreshing={isRefreshing}
-          />
-        )}
-
-        {/* Time Block Selector */}
-        {timeBlockSelectorOpen && (
-          <TimeBlockSelector
-            onClose={() => setTimeBlockSelectorOpen(false)}
-            onTimeBlockSelect={handleTimeBlockSelect}
-            selectedTimeBlocks={selectedTimeBlocks}
-            onConfirm={handleTimeBlockConfirm}
-            onPropertySelect={setSelectedProperty}
-            properties={MOCK_PROPERTIES}
-          />
-        )}
-
-        {/* Global Notification Settings */}
-        <NotificationSettings isOpen={notificationSettingsOpen} onClose={() => setNotificationSettingsOpen(false)} />
-
-        {/* Event-specific Notification Settings */}
-        {selectedEventForNotifications && (
-          <EventNotificationSettings
-            isOpen={eventNotificationSettingsOpen}
-            onClose={() => setEventNotificationSettingsOpen(false)}
-            eventId={selectedEventForNotifications.id}
-            eventTitle={selectedEventForNotifications.title}
-          />
-        )}
       </div>
+
+      {/* Mobile Navigation */}
+      <MobileNav cartItems={cartItems} />
     </div>
   )
 }

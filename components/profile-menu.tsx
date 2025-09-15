@@ -93,6 +93,14 @@ export function ProfileMenu({ onClose, onViewProfile, onSettings, onEditProfile 
 
         <button
           className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => navigateTo("/calendar")}
+        >
+          <Calendar className="h-4 w-4" />
+          <span>Schedule for Showings</span>
+        </button>
+
+        <button
+          className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
           onClick={() => navigateTo("/offers")}
         >
           <User className="h-4 w-4" />
