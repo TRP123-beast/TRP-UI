@@ -16,7 +16,7 @@ Your project is live at:
 
 **[https://vercel.com/trpdev123-gmailcoms-projects/v0-trp](https://vercel.com/trpdev123-gmailcoms-projects/v0-trp)**
 
-## Build your app
+## Build your app.
 
 Continue building your app on:
 
